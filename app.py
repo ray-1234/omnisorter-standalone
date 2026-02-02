@@ -77,30 +77,36 @@ def render_input_form():
         )
 
         st.markdown("#### 運用条件")
+        daily_orders_val = int(st.session_state.get('daily_orders', 100))
+        daily_orders_val = max(1, min(50000, daily_orders_val))
         daily_orders = st.number_input(
             "日次出荷件数",
             min_value=1,
             max_value=50000,
-            value=st.session_state.get('daily_orders', 100),
+            value=daily_orders_val,
             step=10,
             help="1日あたりの出荷件数を入力"
         )
 
+        pieces_val = float(st.session_state.get('pieces_per_order', 2.5))
+        pieces_val = max(0.1, min(100.0, pieces_val))
         pieces_per_order = st.number_input(
             "平均ピース数/件",
             min_value=0.1,
             max_value=100.0,
-            value=st.session_state.get('pieces_per_order', 2.5),
+            value=pieces_val,
             step=0.1,
             help="1件あたりの平均商品点数"
         )
 
+        hours_val = float(st.session_state.get('working_hours', 8))
+        hours_val = max(1.0, min(24.0, hours_val))
         working_hours = st.number_input(
             "作業時間/日（時間）",
-            min_value=1,
-            max_value=24,
-            value=st.session_state.get('working_hours', 8),
-            step=1,
+            min_value=1.0,
+            max_value=24.0,
+            value=hours_val,
+            step=1.0,
             help="1日の作業時間"
         )
 
@@ -109,37 +115,45 @@ def render_input_form():
 
         col2_1, col2_2 = st.columns(2)
         with col2_1:
+            length_val = int(st.session_state.get('product_length', 300))
+            length_val = max(50, min(1500, length_val))
             product_length = st.number_input(
                 "長さ (mm)",
                 min_value=50,
                 max_value=1500,
-                value=st.session_state.get('product_length', 300),
+                value=length_val,
                 step=10,
                 help="商品の最大長さ"
             )
+            width_val = int(st.session_state.get('product_width', 200))
+            width_val = max(50, min(1000, width_val))
             product_width = st.number_input(
                 "幅 (mm)",
                 min_value=50,
                 max_value=1000,
-                value=st.session_state.get('product_width', 200),
+                value=width_val,
                 step=10,
                 help="商品の最大幅"
             )
 
         with col2_2:
+            height_val = int(st.session_state.get('product_height', 150))
+            height_val = max(10, min(600, height_val))
             product_height = st.number_input(
                 "高さ (mm)",
                 min_value=10,
                 max_value=600,
-                value=st.session_state.get('product_height', 150),
+                value=height_val,
                 step=10,
                 help="商品の最大高さ"
             )
+            weight_val = float(st.session_state.get('product_weight', 1.5))
+            weight_val = max(0.1, min(30.0, weight_val))
             product_weight = st.number_input(
                 "重量 (kg)",
                 min_value=0.1,
                 max_value=30.0,
-                value=st.session_state.get('product_weight', 1.5),
+                value=weight_val,
                 step=0.1,
                 help="商品の最大重量"
             )
@@ -190,10 +204,11 @@ def calculate_omnisorter_spec(params):
 
     for model_name, spec in PRODUCT_SPECS.items():
         # 物理制約チェック
-        if (params['product_length'] > spec['maxLength'] or
-            params['product_width'] > spec['maxWidth'] or
-            params['product_height'] > spec['maxHeight'] or
-            params['product_weight'] > spec['maxWeight']):
+        max_product = spec.get('maxProduct', {})
+        if (params['product_length'] > max_product.get('L', 9999) or
+            params['product_width'] > max_product.get('W', 9999) or
+            params['product_height'] > max_product.get('H', 9999) or
+            params['product_weight'] > max_product.get('weight', 9999)):
             continue
 
         # 容器対応チェック
@@ -224,9 +239,12 @@ def calculate_omnisorter_spec(params):
             score -= 10  # 能力不足
 
         # サイズ効率
-        size_ratio = (params['product_length'] * params['product_width']) / (spec['maxLength'] * spec['maxWidth'])
-        if size_ratio > 0.5:
-            score += 15  # サイズ利用効率が高い
+        max_product = spec.get('maxProduct', {})
+        max_area = max_product.get('L', 1) * max_product.get('W', 1)
+        if max_area > 0:
+            size_ratio = (params['product_length'] * params['product_width']) / max_area
+            if size_ratio > 0.5:
+                score += 15  # サイズ利用効率が高い
 
         # 処理量に応じた機種優遇
         if daily_pieces <= 3000:
@@ -304,10 +322,11 @@ def calculate_omnisorter_spec(params):
             continue
 
         # 物理制約チェック
-        if (params['product_length'] <= spec_alt['maxLength'] and
-            params['product_width'] <= spec_alt['maxWidth'] and
-            params['product_height'] <= spec_alt['maxHeight'] and
-            params['product_weight'] <= spec_alt['maxWeight']):
+        max_product_alt = spec_alt.get('maxProduct', {})
+        if (params['product_length'] <= max_product_alt.get('L', 9999) and
+            params['product_width'] <= max_product_alt.get('W', 9999) and
+            params['product_height'] <= max_product_alt.get('H', 9999) and
+            params['product_weight'] <= max_product_alt.get('weight', 9999)):
 
             container_config_alt = get_container_model_config(
                 params['container_type'],
@@ -405,8 +424,8 @@ def render_results(result, params):
                 f"{result['actual_capacity']:,.0f} pcs/時",
                 f"{result['num_intervals']}間口",
                 f"{result['num_blocks']}ブロック",
-                f"{result['selected_model']['spec']['maxLength']}×{result['selected_model']['spec']['maxWidth']}×{result['selected_model']['spec']['maxHeight']}mm",
-                f"{result['selected_model']['spec']['maxWeight']}kg"
+                f"{result['selected_model']['spec']['maxProduct']['L']}×{result['selected_model']['spec']['maxProduct']['W']}×{result['selected_model']['spec']['maxProduct']['H']}mm",
+                f"{result['selected_model']['spec']['maxProduct']['weight']}kg"
             ]
         }
         st.dataframe(
@@ -561,7 +580,8 @@ def render_results(result, params):
                 with col1:
                     st.metric("処理能力", f"{alt['spec'].get('processingCapacity', 1200):,.0f} pcs/時")
                 with col2:
-                    st.metric("最大寸法", f"{alt['spec']['maxLength']}×{alt['spec']['maxWidth']}mm")
+                    max_prod = alt['spec'].get('maxProduct', {})
+                    st.metric("最大寸法", f"{max_prod.get('L', 0)}×{max_prod.get('W', 0)}mm")
                 with col3:
                     container_status = "✅ 推奨" if alt['container_config'].get('recommended') else "△ 可能"
                     st.metric("容器対応", container_status)

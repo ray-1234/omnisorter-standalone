@@ -10,6 +10,8 @@
 - ✅ 独立したGitリポジトリとして初期化済み
 - ✅ 初回コミット完了（ブランチ: `main`）
 - ✅ セキュリティリスクなし（APIキー・パスワード除去済み）
+- ✅ Python 3.12 対応版にアップデート完了
+- ✅ 依存パッケージインストール完了
 
 ---
 
@@ -17,12 +19,14 @@
 
 ### 1-1. 仮想環境の作成と有効化
 
+**重要:** このプロジェクトは Python 3.12 が必要です。
+
 ```bash
 # プロジェクトディレクトリに移動
 cd c:\omnisorter-standalone
 
-# 仮想環境を作成
-python -m venv venv
+# 仮想環境を作成（Python 3.12を使用）
+py -3.12 -m venv venv
 
 # 仮想環境を有効化（Windows）
 venv\Scripts\activate
@@ -38,25 +42,32 @@ source venv/bin/activate
 
 ```bash
 # requirements.txtから一括インストール
+# （仮想環境を有効化している場合）
 pip install -r requirements.txt
+
+# または、仮想環境なしで Python 3.12 を直接使用する場合
+py -3.12 -m pip install -r requirements.txt
 
 # インストール確認
 pip list
 ```
 
-**期待される出力:**
+**期待される出力（Python 3.12 対応版）:**
 ```
-streamlit==1.30.0
-pandas==2.0.3
-numpy==1.24.3
-plotly==5.17.0
+streamlit>=1.30.0
+pandas>=2.0.3
+numpy>=1.26.0
+plotly>=5.17.0
 ```
 
 ### 1-3. アプリケーションの起動
 
 ```bash
-# Streamlitアプリを起動
+# Streamlitアプリを起動（仮想環境を有効化している場合）
 streamlit run app.py
+
+# または、Python 3.12 を直接使用する場合
+py -3.12 -m streamlit run app.py
 ```
 
 **期待される動作:**
@@ -333,16 +344,47 @@ git log -S "sk-proj-" --all
 
 ## トラブルシューティング 🔧
 
-### 問題1: `streamlit: command not found`
+### 問題1: Python と pip のバージョン不一致
+
+**原因:** `python` コマンドと `pip` コマンドが異なるバージョンを指している
+
+**確認方法:**
+```bash
+python --version
+pip --version
+```
+
+**解決:**
+Python 3.12 を使用することを推奨します。
+```bash
+# Python 3.12 を直接使用
+py -3.12 -m pip install -r requirements.txt
+py -3.12 -m streamlit run app.py
+```
+
+### 問題2: numpy インストールエラー（`AttributeError: module 'pkgutil' has no attribute 'ImpImporter'`）
+
+**原因:** 古いバージョンの numpy が Python 3.12 と互換性がない
+
+**解決:**
+```bash
+# requirements.txt が更新されていることを確認
+# numpy>=1.26.0 が必要
+py -3.12 -m pip install --upgrade -r requirements.txt
+```
+
+### 問題3: `streamlit: command not found`
 
 **原因:** Streamlitがインストールされていない
 
 **解決:**
 ```bash
 pip install streamlit
+# または
+py -3.12 -m pip install streamlit
 ```
 
-### 問題2: `ModuleNotFoundError: No module named 'src'`
+### 問題4: `ModuleNotFoundError: No module named 'src'`
 
 **原因:** Pythonパスが正しく設定されていない
 
@@ -353,7 +395,7 @@ cd c:\omnisorter-standalone
 streamlit run app.py
 ```
 
-### 問題3: メール送信が失敗する
+### 問題5: メール送信が失敗する
 
 **原因1:** `.streamlit/secrets.toml` が存在しない
 
@@ -376,7 +418,7 @@ cp .streamlit/secrets.toml.example .streamlit/secrets.toml
 - ポート587が開いているか確認
 - ファイアウォール設定を確認
 
-### 問題4: Streamlit Cloudでデプロイが失敗する
+### 問題6: Streamlit Cloudでデプロイが失敗する
 
 **原因1:** `requirements.txt` の依存関係エラー
 
@@ -390,7 +432,7 @@ cp .streamlit/secrets.toml.example .streamlit/secrets.toml
 - Streamlit Cloud の Secrets設定を確認
 - TOML形式が正しいか確認（インデント、引用符など）
 
-### 問題5: 計算結果が表示されない
+### 問題7: 計算結果が表示されない
 
 **原因:** `src/omnisorter_common.py` が正しく読み込まれていない
 

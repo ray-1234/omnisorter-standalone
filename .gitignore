@@ -25,6 +25,8 @@ credentials.json
 .idea/
 *.swp
 *.swo
+.claude
+nul
 
 # OS generated files
 .DS_Store
