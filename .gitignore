@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+venv/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+*.egg-info/
+
+# Secrets and credentials (CRITICAL - セキュリティ重要)
+.env
+.env.*
+!.env.example
+secrets.toml
+.streamlit/secrets.toml
+!.streamlit/secrets.toml.example
+*.pem
+*.key
+credentials.json
+*_secrets.py
+*.backup
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Data files (optional)
+*.csv
+*.xlsx
+*.log
+*.parquet
+
+# Temporary files
+*.tmp
+temp/
