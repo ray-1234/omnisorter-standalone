@@ -68,6 +68,32 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
+# Streamlit Cloud のUIを非表示にするCSS
+st.markdown("""
+<style>
+    /* ハンバーガーメニュー（右上の3本線）を非表示 */
+    #MainMenu {visibility: hidden;}
+
+    /* フッター（Made with Streamlit）を非表示 */
+    footer {visibility: hidden;}
+
+    /* ヘッダー全体を非表示（GitHub/Forkアイコン含む） */
+    header {visibility: hidden;}
+
+    /* デプロイボタン（Fork/Star等）を非表示 */
+    .stDeployButton {display: none;}
+
+    /* ツールバーを非表示 */
+    [data-testid="stToolbar"] {display: none;}
+
+    /* Streamlit Cloud特有のヘッダーを非表示 */
+    [data-testid="stHeader"] {display: none;}
+
+    /* 上部の余白を調整（ヘッダー非表示による） */
+    .block-container {padding-top: 1rem;}
+</style>
+""", unsafe_allow_html=True)
+
 
 def initialize_app():
     """アプリケーションの初期化"""
