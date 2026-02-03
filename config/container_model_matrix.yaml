@@ -1,0 +1,234 @@
+# OmniSorter 容器×機種マトリクス設定
+# 編集後はアプリを再起動してください
+#
+# 各フィールドの説明:
+#   - max_rows: 最大段数
+#   - max_columns: 最大列数
+#   - max_sides: 面数 (0/1/2)
+#   - ports_per_block: ブロック単位の間口数
+#   - default_blocks: 推奨ブロック数
+#   - recommended: 推奨構成か (true/false)
+#   - supported: 対応可能か (true/false)
+#   - note: 注釈
+#   - configurable: 設定変更可能か (true/false)
+
+version: "1.0"
+
+# 対応容器タイプの定義
+container_types:
+  - "標準トート"
+  - "オリコン30L"
+  - "オリコン40L"
+  - "オリコン50L"
+
+# 機種別容器対応マトリクス
+matrix:
+  mini-cart:
+    標準トート:
+      max_rows: 4
+      max_columns: 5
+      max_sides: 2
+      ports_per_block: 40
+      default_blocks: 2
+      recommended: true
+      supported: true
+      note: "カート式標準構成"
+      configurable: true
+    オリコン30L:
+      max_rows: 0
+      max_columns: 0
+      max_sides: 0
+      ports_per_block: 0
+      default_blocks: 0
+      recommended: false
+      supported: false
+      note: "カート式では対応不可"
+      configurable: false
+    オリコン40L:
+      max_rows: 0
+      max_columns: 0
+      max_sides: 0
+      ports_per_block: 0
+      default_blocks: 0
+      recommended: false
+      supported: false
+      note: "カート式では対応不可"
+      configurable: false
+    オリコン50L:
+      max_rows: 0
+      max_columns: 0
+      max_sides: 0
+      ports_per_block: 0
+      default_blocks: 0
+      recommended: false
+      supported: false
+      note: "カート式では対応不可"
+      configurable: false
+
+  mini-fixed:
+    標準トート:
+      max_rows: 0
+      max_columns: 0
+      max_sides: 0
+      ports_per_block: 0
+      default_blocks: 0
+      recommended: false
+      supported: false
+      note: "固定式ではトート標準対応不可"
+      configurable: false
+    オリコン30L:
+      max_rows: 3
+      max_columns: 5
+      max_sides: 2
+      ports_per_block: 30
+      default_blocks: 2
+      recommended: true
+      supported: true
+      note: "固定式標準構成"
+      configurable: true
+    オリコン40L:
+      max_rows: 3
+      max_columns: 4
+      max_sides: 2
+      ports_per_block: 24
+      default_blocks: 2
+      recommended: true
+      supported: true
+      note: "中型容器対応"
+      configurable: true
+    オリコン50L:
+      max_rows: 3
+      max_columns: 4
+      max_sides: 2
+      ports_per_block: 24
+      default_blocks: 2
+      recommended: false
+      supported: true
+      note: "大型容器・制約あり"
+      configurable: true
+
+  S:
+    標準トート:
+      max_rows: 5
+      max_columns: 5
+      max_sides: 2
+      ports_per_block: 50
+      default_blocks: 4
+      recommended: true
+      supported: true
+      note: "S型標準構成"
+      configurable: true
+    オリコン30L:
+      max_rows: 5
+      max_columns: 5
+      max_sides: 2
+      ports_per_block: 50
+      default_blocks: 4
+      recommended: true
+      supported: true
+      note: "S型・30L対応"
+      configurable: true
+    オリコン40L:
+      max_rows: 4
+      max_columns: 4
+      max_sides: 2
+      ports_per_block: 32
+      default_blocks: 4
+      recommended: true
+      supported: true
+      note: "S型・40L対応"
+      configurable: true
+    オリコン50L:
+      max_rows: 3
+      max_columns: 4
+      max_sides: 2
+      ports_per_block: 24
+      default_blocks: 4
+      recommended: false
+      supported: true
+      note: "S型・50L制約あり"
+      configurable: true
+
+  M:
+    標準トート:
+      max_rows: 5
+      max_columns: 5
+      max_sides: 2
+      ports_per_block: 50
+      default_blocks: 4
+      recommended: true
+      supported: true
+      note: "M型標準構成"
+      configurable: true
+    オリコン30L:
+      max_rows: 5
+      max_columns: 5
+      max_sides: 2
+      ports_per_block: 50
+      default_blocks: 4
+      recommended: true
+      supported: true
+      note: "M型・30L対応"
+      configurable: true
+    オリコン40L:
+      max_rows: 4
+      max_columns: 5
+      max_sides: 2
+      ports_per_block: 40
+      default_blocks: 4
+      recommended: true
+      supported: true
+      note: "M型・40L対応"
+      configurable: true
+    オリコン50L:
+      max_rows: 4
+      max_columns: 4
+      max_sides: 2
+      ports_per_block: 32
+      default_blocks: 4
+      recommended: true
+      supported: true
+      note: "M型・50L対応"
+      configurable: true
+
+  L:
+    標準トート:
+      max_rows: 4
+      max_columns: 4
+      max_sides: 2
+      ports_per_block: 32
+      default_blocks: 4
+      recommended: true
+      supported: true
+      note: "L型標準構成（4×4制限）"
+      configurable: true
+    オリコン30L:
+      max_rows: 4
+      max_columns: 4
+      max_sides: 2
+      ports_per_block: 32
+      default_blocks: 4
+      recommended: true
+      supported: true
+      note: "L型・30L対応"
+      configurable: true
+    オリコン40L:
+      max_rows: 4
+      max_columns: 4
+      max_sides: 2
+      ports_per_block: 32
+      default_blocks: 4
+      recommended: true
+      supported: true
+      note: "L型・40L対応"
+      configurable: true
+    オリコン50L:
+      max_rows: 4
+      max_columns: 4
+      max_sides: 2
+      ports_per_block: 32
+      default_blocks: 4
+      recommended: true
+      supported: true
+      note: "L型・50L対応"
+      configurable: true

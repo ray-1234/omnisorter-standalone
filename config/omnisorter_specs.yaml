@@ -1,0 +1,210 @@
+# OmniSorter 機種スペック設定
+# 編集後はアプリを再起動してください
+#
+# 単位:
+#   - dimensions: メートル (m)
+#   - maxProduct.L/W/H: ミリメートル (mm)
+#   - maxProduct.weight: グラム (g)
+#   - capacity: ピース/時 (pcs/h)
+
+version: "1.0"
+
+models:
+  mini-cart:
+    name: "OmniSorter mini（カート式）"
+    dimensions:
+      L: 5.6
+      W: 2.6
+      H: 2.2
+    maxProduct:
+      L: 400
+      W: 320
+      H: 150
+      weight: 5000
+    capacity:
+      min: 800
+      max: 1000
+    blocks: 2
+    ports: 80
+    portsConfig:
+      rows: 4
+      columns: 5
+      sides: 2
+    robotSpeed: "全体で800-1000pcs/時"
+    powerRequirement: "3相200V, 50/60Hz, 約3.5kW"
+    features:
+      - "省スペース"
+      - "カート移動"
+      - "短納期導入"
+    unitCapacity: 1000
+    supportedContainers:
+      - "標準トート"
+    priority: 6
+
+  mini-fixed:
+    name: "OmniSorter mini（固定式）"
+    dimensions:
+      L: 5.6
+      W: 2.6
+      H: 2.2
+    maxProduct:
+      L: 400
+      W: 320
+      H: 180
+      weight: 5000
+    capacity:
+      min: 800
+      max: 1000
+    blocks: 2
+    ports: 60
+    portsConfig:
+      rows: 3
+      columns: 5
+      sides: 2
+    robotSpeed: "全体で800-1000pcs/時"
+    powerRequirement: "3相200V, 50/60Hz, 約3.5kW"
+    features:
+      - "省スペース"
+      - "固定式安定性"
+      - "短納期導入"
+    unitCapacity: 1000
+    supportedContainers:
+      - "オリコン30L"
+      - "オリコン40L"
+      - "オリコン50L"
+    priority: 5
+
+  S:
+    name: "OmniSorter Sサイズ（標準機）"
+    dimensions:
+      L: 11.7
+      W: 3.4
+      H: 2.5
+    maxProduct:
+      L: 400
+      W: 320
+      H: 200
+      weight: 5000
+    capacity:
+      min: 1200
+      max: 1500
+    capacity_by_blocks:
+      1:
+        min: 800
+        max: 1000
+      2:
+        min: 1000
+        max: 1200
+      3:
+        min: 1200
+        max: 1500
+    blocks:
+      min: 1
+      max: 10
+    portsPerBlock:
+      rows: 4
+      columns: 5
+      sides: 2
+    robotSpeed: "1台あたり1200-1500pcs/時（3ブロック以上推奨）"
+    powerRequirement: "3相200V, 50/60Hz, 約7.5kW（4ブロック時）"
+    features:
+      - "コンパクト設置"
+      - "高速仕分け"
+      - "拡張性"
+    unitCapacity: 1500
+    supportedContainers:
+      - "標準トート"
+      - "オリコン30L"
+      - "オリコン40L"
+      - "オリコン50L"
+    priority: 4
+
+  M:
+    name: "OmniSorter Mサイズ（標準機）"
+    dimensions:
+      L: 13.0
+      W: 4.4
+      H: 2.5
+    maxProduct:
+      L: 500
+      W: 410
+      H: 200
+      weight: 5000
+    capacity:
+      min: 1200
+      max: 1500
+    capacity_by_blocks:
+      1:
+        min: 800
+        max: 1000
+      2:
+        min: 1000
+        max: 1200
+      3:
+        min: 1200
+        max: 1500
+    blocks:
+      min: 1
+      max: 10
+    portsPerBlock:
+      rows: 5
+      columns: 5
+      sides: 2
+    robotSpeed: "1台あたり1200-1500pcs/時（3ブロック以上推奨）"
+    powerRequirement: "3相200V, 50/60Hz, 約9.0kW（4ブロック時）"
+    features:
+      - "中型商品対応"
+      - "高処理能力"
+      - "柔軟性"
+    unitCapacity: 1500
+    supportedContainers:
+      - "標準トート"
+      - "オリコン30L"
+      - "オリコン40L"
+      - "オリコン50L"
+    priority: 2
+
+  L:
+    name: "OmniSorter Lサイズ（標準機）"
+    dimensions:
+      L: 14.7
+      W: 6.1
+      H: 2.5
+    maxProduct:
+      L: 750
+      W: 500
+      H: 200
+      weight: 8000
+    capacity:
+      min: 1200
+      max: 1500
+    capacity_by_blocks:
+      1:
+        min: 800
+        max: 1000
+      2:
+        min: 1000
+        max: 1200
+      3:
+        min: 1200
+        max: 1500
+    blocks:
+      min: 1
+      max: 10
+    portsPerBlock:
+      rows: 4
+      columns: 4
+      sides: 2
+    robotSpeed: "1台あたり1200-1500pcs/時（3ブロック以上推奨）"
+    powerRequirement: "3相200V, 50/60Hz, 約12.0kW（4ブロック時）"
+    features:
+      - "大型商品対応"
+      - "重量物対応"
+      - "高耐久性"
+    unitCapacity: 1500
+    supportedContainers:
+      - "標準トート"
+      - "オリコン30L"
+      - "オリコン40L"
+      - "オリコン50L"
+    priority: 1

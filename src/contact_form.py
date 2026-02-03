@@ -25,8 +25,63 @@ def validate_email(email: str) -> bool:
     return re.match(pattern, email) is not None
 
 
+def format_calculation_data(params: dict, result: dict) -> str:
+    """
+    計算結果をメール本文用にフォーマット
+
+    Args:
+        params: 入力パラメータ
+        result: 計算結果
+
+    Returns:
+        フォーマットされた文字列
+    """
+    if not params or not result:
+        return ""
+
+    lines = []
+    lines.append("\n━━━━━━━━━━━━━━━━━━━━━━")
+    lines.append("【試算入力条件】")
+    lines.append(f"  出荷量: {params.get('daily_shipment', 'N/A'):,} ピース/日")
+    lines.append(f"  稼働時間: {params.get('operating_hours', 'N/A')} 時間/日")
+    lines.append(f"  ピーク倍率: {params.get('peak_ratio', 'N/A')} 倍")
+    lines.append(f"  オーダー数: {params.get('order_count', 'N/A'):,} 件/日")
+    lines.append(f"  商品サイズ(L×W×H): {params.get('max_length', 'N/A')} × {params.get('max_width', 'N/A')} × {params.get('max_height', 'N/A')} mm")
+    lines.append(f"  最大重量: {params.get('max_weight', 'N/A'):,} g")
+    lines.append(f"  設置可能面積: {params.get('floor_length', 'N/A')} × {params.get('floor_width', 'N/A')} m")
+    lines.append(f"  天井高: {params.get('ceiling_height', 'N/A')} m")
+    lines.append(f"  容器タイプ: {params.get('container_type', 'N/A')}")
+
+    lines.append("\n━━━━━━━━━━━━━━━━━━━━━━")
+    lines.append("【試算結果】")
+
+    # 推奨機種情報
+    if 'selected_model' in result and result['selected_model']:
+        model = result['selected_model']
+        spec = model.get('spec', {})
+        lines.append(f"  推奨機種: {spec.get('name', model.get('model_id', 'N/A'))}")
+        lines.append(f"  必要台数: {model.get('units', 'N/A')} 台")
+        lines.append(f"  ブロック数: {model.get('blocks', 'N/A')} ブロック")
+        lines.append(f"  間口数: {model.get('ports', 'N/A')} 口")
+        lines.append(f"  処理能力: {model.get('capacity', {}).get('min', 'N/A'):,} - {model.get('capacity', {}).get('max', 'N/A'):,} pcs/時")
+        lines.append(f"  設置寸法(L×W×H): {model.get('dimensions', {}).get('L', 'N/A')} × {model.get('dimensions', {}).get('W', 'N/A')} × {model.get('dimensions', {}).get('H', 'N/A')} m")
+
+    # 要求処理能力
+    if 'required_capacity' in result:
+        lines.append(f"\n  必要処理能力: {result.get('required_capacity', 'N/A'):,} pcs/時")
+
+    # 選定理由
+    if 'selection_reason' in result:
+        lines.append(f"  選定理由: {result.get('selection_reason', 'N/A')}")
+
+    lines.append("━━━━━━━━━━━━━━━━━━━━━━")
+
+    return "\n".join(lines)
+
+
 def send_inquiry_email(company: str, name: str, email: str, phone: str,
-                      inquiry_type: str, message: str) -> bool:
+                      inquiry_type: str, message: str,
+                      params: dict = None, result: dict = None) -> bool:
     """
     問い合わせメールを送信
 
@@ -37,6 +92,8 @@ def send_inquiry_email(company: str, name: str, email: str, phone: str,
         phone: 電話番号
         inquiry_type: 問い合わせ種別
         message: 問い合わせ内容
+        params: 試算入力パラメータ（オプション）
+        result: 試算結果（オプション）
 
     Returns:
         bool: 送信成功した場合True
@@ -48,6 +105,9 @@ def send_inquiry_email(company: str, name: str, email: str, phone: str,
         if not smtp_config:
             st.warning("⚠️ メール設定が見つかりません。管理者にお問い合わせください。")
             return False
+
+        # 計算データのフォーマット
+        calculation_section = format_calculation_data(params, result)
 
         # メール本文を作成
         body = f"""
@@ -72,6 +132,7 @@ def send_inquiry_email(company: str, name: str, email: str, phone: str,
 【お問い合わせ内容】
 {message}
 ━━━━━━━━━━━━━━━━━━━━━━
+{calculation_section}
 
 ※このメールはOmniSorter簡易試算ツールから自動送信されました
 """
@@ -99,15 +160,23 @@ def send_inquiry_email(company: str, name: str, email: str, phone: str,
         return False
 
 
-def render_contact_form():
+def render_contact_form(params: dict = None, result: dict = None):
     """
     問い合わせフォームを表示
+
+    Args:
+        params: 試算入力パラメータ（オプション）
+        result: 試算結果（オプション）
     """
     st.markdown("""
     ### 📧 お問い合わせフォーム
     OmniSorterに関するご質問・お見積り依頼はこちらから承ります。
     お気軽にお問い合わせください。
     """)
+
+    # 試算結果がある場合は表示
+    if params and result:
+        st.info("💡 試算結果が入力されています。お問い合わせ時に自動で送信されます。")
 
     with st.form("contact_form", clear_on_submit=False):
         col1, col2 = st.columns(2)
@@ -165,7 +234,8 @@ def render_contact_form():
                 with st.spinner("送信中..."):
                     if send_inquiry_email(
                         company_name, name, email, phone,
-                        inquiry_type, message
+                        inquiry_type, message,
+                        params=params, result=result
                     ):
                         st.success("✅ お問い合わせを送信しました！")
                         st.balloons()

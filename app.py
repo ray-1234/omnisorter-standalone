@@ -18,8 +18,8 @@ import numpy as np
 
 from src.omnisorter_common import (
     initialize_session_state_safely,
-    get_default_container_model_matrix,
-    get_default_omnisorter_specs,
+    get_omnisorter_specs,
+    get_container_matrix,
     get_container_model_config
 )
 from src.contact_form import render_contact_form
@@ -191,8 +191,8 @@ def render_input_form():
 
 def calculate_omnisorter_spec(params):
     """OmniSorter仕様の計算"""
-    PRODUCT_SPECS = get_default_omnisorter_specs()
-    CONTAINER_MODEL_MATRIX = get_default_container_model_matrix()
+    PRODUCT_SPECS = get_omnisorter_specs()
+    CONTAINER_MODEL_MATRIX = get_container_matrix()
 
     # 必要処理能力の計算
     daily_pieces = params['daily_orders'] * params['pieces_per_order']
@@ -376,7 +376,7 @@ def render_results(result, params):
     with col1:
         st.metric(
             "推奨機種",
-            result['selected_model']['name'],
+            result['selected_model']['spec']['name'],
             help="最適な機種名"
         )
 
@@ -420,7 +420,7 @@ def render_results(result, params):
                 "最大商品重量"
             ],
             "仕様": [
-                result['selected_model']['name'],
+                result['selected_model']['spec']['name'],
                 f"{result['actual_capacity']:,.0f} pcs/時",
                 f"{result['num_intervals']}間口",
                 f"{result['num_blocks']}ブロック",
@@ -575,7 +575,7 @@ def render_results(result, params):
         st.subheader("💡 代替機種案")
 
         for i, alt in enumerate(result['alternatives'], 1):
-            with st.expander(f"代替案 {i}: {alt['name']}"):
+            with st.expander(f"代替案 {i}: {alt['spec']['name']}"):
                 col1, col2, col3 = st.columns(3)
                 with col1:
                     st.metric("処理能力", f"{alt['spec'].get('processingCapacity', 1200):,.0f} pcs/時")
@@ -659,7 +659,10 @@ def main():
     # 問い合わせフォーム
     st.markdown("---")
     st.markdown("---")
-    render_contact_form()
+    # 試算結果があれば問い合わせフォームに渡す
+    inquiry_params = st.session_state.get('last_params', None)
+    inquiry_result = st.session_state.get('last_result', None)
+    render_contact_form(params=inquiry_params, result=inquiry_result)
 
     # フッター
     st.markdown("---")

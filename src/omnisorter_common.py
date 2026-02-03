@@ -3,6 +3,37 @@ import pandas as pd
 import numpy as np
 from typing import Dict, List, Tuple, Optional
 
+
+def get_omnisorter_specs() -> Dict:
+    """
+    OmniSorter仕様を取得（YAMLから読み込み、フォールバック付き）
+
+    Returns:
+        機種スペック辞書
+    """
+    try:
+        from src.config_loader import load_omnisorter_specs
+        return load_omnisorter_specs(fallback_to_default=True)
+    except ImportError:
+        # config_loader が利用できない場合はデフォルト値を返す
+        return get_default_omnisorter_specs()
+
+
+def get_container_matrix() -> Dict:
+    """
+    容器×機種マトリクスを取得（YAMLから読み込み、フォールバック付き）
+
+    Returns:
+        容器マトリクス辞書
+    """
+    try:
+        from src.config_loader import load_container_model_matrix
+        return load_container_model_matrix(fallback_to_default=True)
+    except ImportError:
+        # config_loader が利用できない場合はデフォルト値を返す
+        return get_default_container_model_matrix()
+
+
 def get_default_omnisorter_specs():
     """デフォルトのOmniSorter仕様を返す（統一版）"""
     return {
@@ -530,12 +561,12 @@ def initialize_session_state_safely():
             if key not in st.session_state:
                 st.session_state[key] = default_value
         
-        # 設定の初期化（初回のみ）
+        # 設定の初期化（初回のみ）- YAMLから読み込み、失敗時はデフォルト値
         if st.session_state.get('container_model_matrix') is None:
-            st.session_state['container_model_matrix'] = get_default_container_model_matrix()
-        
+            st.session_state['container_model_matrix'] = get_container_matrix()
+
         if st.session_state.get('omnisorter_specs') is None:
-            st.session_state['omnisorter_specs'] = get_default_omnisorter_specs()
+            st.session_state['omnisorter_specs'] = get_omnisorter_specs()
             
     except Exception as e:
         print(f"Session state initialization error: {str(e)}")
