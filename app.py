@@ -1147,9 +1147,12 @@ def render_results(result, params):
         fig_gauge = go.Figure(go.Indicator(
             mode="gauge+number",
             value=util_value,
-            number={'suffix': '%', 'font': {'size': 32}},
-            domain={'x': [0, 1], 'y': [0, 1]},
-            title={'text': f"稼働率<br><span style='font-size:0.8em;color:{status_color}'>{gauge_status}</span>"},
+            number={'suffix': '%', 'font': {'size': 28}},
+            domain={'x': [0, 1], 'y': [0, 0.85]},
+            title={
+                'text': f"稼働率<br><span style='font-size:0.85em;color:{status_color}'>{gauge_status}</span>",
+                'font': {'size': 16}
+            },
             gauge={
                 'axis': {'range': [None, 120]},
                 'bar': {'color': "#FF6B35"},
@@ -1167,7 +1170,7 @@ def render_results(result, params):
             }
         ))
 
-        fig_gauge.update_layout(height=280, margin=dict(t=40, b=20, l=20, r=20))
+        fig_gauge.update_layout(height=250, margin=dict(t=60, b=10, l=20, r=20))
         st.plotly_chart(fig_gauge, use_container_width=True)
 
     # 代替案
@@ -1291,7 +1294,7 @@ def main():
         <h1 style="margin: 0; font-size: 2rem;">🤖 OmniSorter かんたんシミュレーション</h1>
         <p style="color: #666; margin: 0.5rem 0 0 0; font-size: 0.95rem;">
             OmniSorterの機種と仕様を簡易的にシミュレーションします。<br>
-            あなたの業務にあうOmniSorterを5分で見つけます！
+            あなたの倉庫にあう機種が5分で見つかる！
         </p>
     </div>
     """, unsafe_allow_html=True)
@@ -1305,7 +1308,7 @@ def main():
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         calculate_button = st.button(
-            "🚀 仕様計算を実行",
+            "🚀 シミュレーションを開始！",
             type="primary",
             use_container_width=True
         )

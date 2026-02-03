@@ -167,6 +167,7 @@ def send_confirmation_email(name: str, email: str, company: str,
 
 def send_inquiry_email(company: str, name: str, email: str, phone: str,
                       inquiry_type: str, message: str,
+                      sales_rep: str = None,
                       params: dict = None, result: dict = None) -> bool:
     """
     問い合わせメールを送信（社内向け + 問い合わせ者への確認メール）
@@ -178,6 +179,7 @@ def send_inquiry_email(company: str, name: str, email: str, phone: str,
         phone: 電話番号
         inquiry_type: 問い合わせ種別
         message: 問い合わせ内容
+        sales_rep: 販売担当者名（オプション）
         params: 試算入力パラメータ（オプション）
         result: 試算結果（オプション）
 
@@ -194,6 +196,9 @@ def send_inquiry_email(company: str, name: str, email: str, phone: str,
 
         # 計算データのフォーマット
         calculation_section = format_calculation_data(params, result)
+
+        # 担当者名セクション
+        sales_rep_section = f"\n【ご連絡先担当者】\n{sales_rep}\n" if sales_rep else ""
 
         # メール本文を作成（社内向け）
         body = f"""
@@ -214,7 +219,7 @@ def send_inquiry_email(company: str, name: str, email: str, phone: str,
 
 【問い合わせ種別】
 {inquiry_type}
-
+{sales_rep_section}
 【お問い合わせ内容】
 {message}
 ━━━━━━━━━━━━━━━━━━━━━━
@@ -308,6 +313,11 @@ def render_contact_form(params: dict = None, result: dict = None):
                     "その他"
                 ]
             )
+            sales_rep = st.text_input(
+                "ご連絡先担当者名",
+                placeholder="例：鈴木（既にご連絡がある場合）",
+                help="既に弊社または販売パートナーとやり取りがある場合はご記入ください"
+            )
 
         message = st.text_area(
             "お問い合わせ内容 *",
@@ -332,6 +342,7 @@ def render_contact_form(params: dict = None, result: dict = None):
                     if send_inquiry_email(
                         company_name, name, email, phone,
                         inquiry_type, message,
+                        sales_rep=sales_rep,
                         params=params, result=result
                     ):
                         st.success("✅ お問い合わせを送信しました！")
