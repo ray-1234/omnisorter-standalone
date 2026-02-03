@@ -1,0 +1,95 @@
+# OmniSorter アプリケーション設定
+# 編集後はアプリを再起動してください
+#
+# このファイルには計算ロジックのパラメータと
+# UIのデフォルト値を定義します
+
+version: "1.0"
+
+# ========================================
+# 計算パラメータ
+# ========================================
+calculation:
+  # 目標稼働率 (0.0-1.0)
+  # 推奨: 0.85-0.95
+  target_utilization: 0.95
+
+  # 目標回転数 (回転/時)
+  # 1間口が1時間に何回使用されるかの目標値
+  # 推奨: 6-10
+  target_rotation: 6
+
+# ========================================
+# 機種選定スコアリング
+# ========================================
+scoring:
+  # 機種優先度スコア
+  model_priority:
+    S: 100      # S最優先
+    M: 50       # M次点
+    L: 25       # L最後
+    mini_small: 150   # mini（小規模運用時）
+    mini_large: 10    # mini（大規模運用時）
+
+  # miniを優先する日次処理量の閾値 (pcs/日)
+  mini_threshold_pcs: 3000
+
+  # 容器推奨ボーナス
+  container_recommended_bonus: 20
+
+  # 稼働率によるスコア調整
+  utilization:
+    optimal_min: 60       # 最適範囲下限 (%)
+    optimal_max: 85       # 最適範囲上限 (%)
+    optimal_bonus: 15     # 最適範囲時ボーナス
+    high_max: 95          # 高稼働範囲上限 (%)
+    high_bonus: 10        # 高稼働時ボーナス
+    overload_penalty: -10 # 過負荷時ペナルティ (100%超)
+
+  # コストペナルティ
+  cost_penalty:
+    # 台数増加ペナルティ（1台追加ごと）
+    # 重要: 台数が増えるほうがコスト大
+    units_penalty: 30
+    # 間口数増加ペナルティ（1間口追加ごと、40間口基準）
+    ports_penalty: 0.1
+    ports_baseline: 40
+
+# ========================================
+# UI デフォルト値
+# ========================================
+ui_defaults:
+  # 運用条件
+  daily_orders: 1000          # 日次出荷件数
+  pieces_per_order: 2.0       # 平均ピース数/件
+  working_hours: 8.0          # 作業時間 (時間)
+
+  # 商品サイズ (mm)
+  product_length: 300
+  product_width: 200
+  product_height: 150
+  product_weight: 1.5         # 重量 (kg)
+
+  # ピーク倍率選択肢
+  peak_ratio_options:
+    - 1.0
+    - 1.2
+    - 1.5
+    - 2.0
+    - 2.5
+    - 3.0
+
+# ========================================
+# 表示設定
+# ========================================
+display:
+  # 稼働率の色分け閾値
+  utilization_thresholds:
+    warning: 85     # 黄色表示 (%)
+    danger: 95      # 赤色表示 (%)
+
+  # 目標稼働率表示範囲
+  target_utilization_display: "60-85%"
+
+  # まとめ仕分け提案の最大pcs数
+  batch_mode_max_pcs: 10

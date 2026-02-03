@@ -1,27 +1,9 @@
 # OmniSorter Standalone - Minimal Dependencies
-<<<<<<< HEAD
 # 最小限のパッケージ構成
-=======
-# 最小限のパッケージ構成（15 packages → 4 packages, 73%削減）
->>>>>>> c90b4da51d192027a411f488c726d9b384913267
 # Python 3.12 対応版
 
 streamlit>=1.30.0
 pandas>=2.0.3
 numpy>=1.26.0
 plotly>=5.17.0
-<<<<<<< HEAD
 PyYAML>=6.0.1
-=======
->>>>>>> c90b4da51d192027a411f488c726d9b384913267
-
-# 削除されたパッケージ:
-# - openai (AI連携不要)
-# - boto3 (AWS連携不要)
-# - chardet (CSV自動判定不要)
-# - python-dotenv (環境変数不要)
-# - streamlit-option-menu (カスタムメニュー不要)
-# - requests (外部API不要)
-# - xlrd (古いExcel不要)
-# - openpyxl (Excel読み込み不要)
-# - psutil (システム監視不要)

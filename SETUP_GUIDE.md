@@ -307,9 +307,6 @@ cd c:\omnisorter-standalone
 # APIキーが含まれていないか確認
 grep -r "sk-proj-" . || echo "✅ No API keys found"
 
-# パスワードが含まれていないか確認
-grep -r "Auda2018" . || echo "✅ No passwords found"
-
 # 機密情報が含まれていないか確認
 grep -r "api_key\s*=" . --include="*.py" | grep -v "secrets" || echo "✅ Clean"
 ```
@@ -317,7 +314,6 @@ grep -r "api_key\s*=" . --include="*.py" | grep -v "secrets" || echo "✅ Clean"
 **期待される出力:**
 ```
 ✅ No API keys found
-✅ No passwords found
 ✅ Clean
 ```
 
@@ -442,7 +438,7 @@ cp .streamlit/secrets.toml.example .streamlit/secrets.toml
 ls -la src/omnisorter_common.py
 
 # インポートテスト
-python -c "from src.omnisorter_common import get_default_omnisorter_specs; print('OK')"
+python -c "from src.omnisorter_common import get_omnisorter_specs; print('OK')"
 ```
 
 ---

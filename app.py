@@ -15,14 +15,49 @@ import plotly.graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots
 import numpy as np
+from pathlib import Path
+import base64
 
 from src.omnisorter_common import (
     initialize_session_state_safely,
     get_omnisorter_specs,
     get_container_matrix,
-    get_container_model_config
+    get_container_model_config,
+    get_app_settings
 )
 from src.contact_form import render_contact_form
+
+# アプリケーション設定を読み込み
+APP_SETTINGS = get_app_settings()
+
+# 画像ディレクトリのパス
+ASSETS_DIR = Path(__file__).parent / "assets" / "images"
+
+
+def get_model_image_base64(image_filename: str) -> str:
+    """機種画像をBase64エンコードして返す"""
+    if not image_filename:
+        return None
+
+    image_path = ASSETS_DIR / image_filename
+    if not image_path.exists():
+        return None
+
+    with open(image_path, "rb") as f:
+        data = base64.b64encode(f.read()).decode()
+
+    # 拡張子から MIME タイプを判定
+    suffix = image_path.suffix.lower()
+    mime_types = {
+        '.png': 'image/png',
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.gif': 'image/gif',
+        '.webp': 'image/webp'
+    }
+    mime_type = mime_types.get(suffix, 'image/png')
+
+    return f"data:{mime_type};base64,{data}"
 
 
 # ページ設定
@@ -59,117 +94,118 @@ def render_input_form():
     """入力フォームの表示"""
     st.subheader("📋 作業条件の入力")
 
+    # 設定からデフォルト値を取得
+    ui_defaults = APP_SETTINGS.get('ui_defaults', {})
+
     col1, col2 = st.columns(2)
 
     with col1:
         st.markdown("#### 基本情報")
         company_name = st.text_input(
             "会社名",
-            placeholder="例：株式会社サンプル"
+            placeholder="例：株式会社サンプル",
+            key="input_company_name"
         )
         industry = st.selectbox(
             "業界",
-            ["EC・通販", "小売・卸売", "食品", "アパレル", "医薬品", "製造業", "3PL", "その他"]
+            ["EC・通販", "小売・卸売", "食品", "アパレル", "医薬品", "製造業", "3PL", "その他"],
+            key="input_industry"
         )
         business_type = st.selectbox(
             "事業形態",
-            ["B2C（toC）", "B2B（toB）", "B2B2C", "その他"]
+            ["B2C（toC）", "B2B（toB）", "B2B2C", "その他"],
+            key="input_business_type"
         )
 
         st.markdown("#### 運用条件")
-        daily_orders_val = int(st.session_state.get('daily_orders', 100))
-        daily_orders_val = max(1, min(50000, daily_orders_val))
         daily_orders = st.number_input(
             "日次出荷件数",
             min_value=1,
             max_value=50000,
-            value=daily_orders_val,
+            value=ui_defaults.get('daily_orders', 1000),
             step=10,
+            key="input_daily_orders",
             help="1日あたりの出荷件数を入力"
         )
 
-        pieces_val = float(st.session_state.get('pieces_per_order', 2.5))
-        pieces_val = max(0.1, min(100.0, pieces_val))
         pieces_per_order = st.number_input(
             "平均ピース数/件",
             min_value=0.1,
             max_value=100.0,
-            value=pieces_val,
+            value=ui_defaults.get('pieces_per_order', 2.0),
             step=0.1,
+            key="input_pieces_per_order",
             help="1件あたりの平均商品点数"
         )
 
-        hours_val = float(st.session_state.get('working_hours', 8))
-        hours_val = max(1.0, min(24.0, hours_val))
         working_hours = st.number_input(
-            "作業時間/日（時間）",
+            "作業可能時間/日（時間）",
             min_value=1.0,
             max_value=24.0,
-            value=hours_val,
+            value=ui_defaults.get('working_hours', 8.0),
             step=1.0,
-            help="1日の作業時間"
+            key="input_working_hours",
+            help="1日で仕分けにとれる作業可能時間"
         )
 
     with col2:
-        st.markdown("#### 商品仕様")
+        st.markdown("#### 商品平均仕様")
 
         col2_1, col2_2 = st.columns(2)
         with col2_1:
-            length_val = int(st.session_state.get('product_length', 300))
-            length_val = max(50, min(1500, length_val))
             product_length = st.number_input(
                 "長さ (mm)",
                 min_value=50,
                 max_value=1500,
-                value=length_val,
+                value=ui_defaults.get('product_length', 300),
                 step=10,
+                key="input_product_length",
                 help="商品の最大長さ"
             )
-            width_val = int(st.session_state.get('product_width', 200))
-            width_val = max(50, min(1000, width_val))
             product_width = st.number_input(
                 "幅 (mm)",
                 min_value=50,
                 max_value=1000,
-                value=width_val,
+                value=ui_defaults.get('product_width', 200),
                 step=10,
+                key="input_product_width",
                 help="商品の最大幅"
             )
 
         with col2_2:
-            height_val = int(st.session_state.get('product_height', 150))
-            height_val = max(10, min(600, height_val))
             product_height = st.number_input(
                 "高さ (mm)",
                 min_value=10,
                 max_value=600,
-                value=height_val,
+                value=ui_defaults.get('product_height', 150),
                 step=10,
+                key="input_product_height",
                 help="商品の最大高さ"
             )
-            weight_val = float(st.session_state.get('product_weight', 1.5))
-            weight_val = max(0.1, min(30.0, weight_val))
             product_weight = st.number_input(
-                "重量 (kg)",
+                "平均重量 (kg)",
                 min_value=0.1,
-                max_value=30.0,
-                value=weight_val,
+                max_value=10.0,
+                value=ui_defaults.get('product_weight', 1.5),
                 step=0.1,
-                help="商品の最大重量"
+                key="input_product_weight",
+                help="商品の最大重量（Lサイズは8kgまで対応）"
             )
 
         container_type = st.selectbox(
             "使用容器タイプ",
-            ["標準トート", "オリコン30L", "オリコン40L", "オリコン50L", "不明"]
+            ["OS標準トート", "オリコン30L", "オリコン40L", "オリコン50L", "不明"],
+            key="input_container_type"
         )
 
         st.markdown("#### 追加情報（任意）")
-        peak_ratio = st.slider(
+        peak_ratio_options = ui_defaults.get('peak_ratio_options', [1.0, 1.2, 1.5, 2.0, 2.5, 3.0])
+        peak_ratio = st.selectbox(
             "ピーク倍率",
-            min_value=1.0,
-            max_value=5.0,
-            value=1.5,
-            step=0.1,
+            options=peak_ratio_options,
+            index=0,  # デフォルト: 1.0
+            format_func=lambda x: f"{x:.1f}倍",
+            key="input_peak_ratio",
             help="通常時に対するピーク時の倍率"
         )
 
@@ -190,25 +226,64 @@ def render_input_form():
 
 
 def calculate_omnisorter_spec(params):
-    """OmniSorter仕様の計算"""
+    """OmniSorter仕様の計算
+
+    計算ロジック:
+    1. 必要処理能力（pcs/h）と必要件数（件/h）を算出
+    2. 機種の処理能力で対応可能かを判定
+    3. 回転数を考慮した最小間口数を算出（コスト最小化）
+    4. 必要台数を算出
+
+    パラメータは config/app_settings.yaml から読み込み
+    """
     PRODUCT_SPECS = get_omnisorter_specs()
     CONTAINER_MODEL_MATRIX = get_container_matrix()
 
+    # 設定から計算パラメータを取得
+    calc_settings = APP_SETTINGS.get('calculation', {})
+    scoring_settings = APP_SETTINGS.get('scoring', {})
+
+    TARGET_UTILIZATION = calc_settings.get('target_utilization', 0.95)
+    TARGET_ROTATION = calc_settings.get('target_rotation', 6)
+
     # 必要処理能力の計算
     daily_pieces = params['daily_orders'] * params['pieces_per_order']
-    required_capacity_per_hour = (daily_pieces / params['working_hours']) * params['peak_ratio']
+    daily_orders = params['daily_orders']
+    working_hours = params['working_hours']
+    peak_ratio = params['peak_ratio']
+
+    # 時間あたり必要処理能力
+    required_pcs_per_hour = (daily_pieces / working_hours) * peak_ratio
+    required_orders_per_hour = (daily_orders / working_hours) * peak_ratio
 
     # 機種選定ロジック
     selected_model = None
     best_score = -1
+    best_calculation = None
 
     for model_name, spec in PRODUCT_SPECS.items():
-        # 物理制約チェック
+        # 物理制約チェック（L/W/H: mm、weight: g）
+        # 入力の重量はkg、設定はgのため1000倍して比較
+        # 長さと幅は回転を考慮（どちらの向きでも入ればOK）
         max_product = spec.get('maxProduct', {})
-        if (params['product_length'] > max_product.get('L', 9999) or
-            params['product_width'] > max_product.get('W', 9999) or
-            params['product_height'] > max_product.get('H', 9999) or
-            params['product_weight'] > max_product.get('weight', 9999)):
+        product_weight_g = params['product_weight'] * 1000  # kg → g
+
+        max_L = max_product.get('L', 9999)
+        max_W = max_product.get('W', 9999)
+        max_H = max_product.get('H', 9999)
+        max_weight = max_product.get('weight', 9999)
+
+        prod_L = params['product_length']
+        prod_W = params['product_width']
+        prod_H = params['product_height']
+
+        # 回転なし: 長さ→L、幅→W
+        fits_normal = (prod_L <= max_L) and (prod_W <= max_W)
+        # 回転あり: 長さ→W、幅→L（90度回転）
+        fits_rotated = (prod_L <= max_W) and (prod_W <= max_L)
+
+        # どちらの向きでも入らない、または高さ・重量がオーバーなら除外
+        if (not fits_normal and not fits_rotated) or prod_H > max_H or product_weight_g > max_weight:
             continue
 
         # 容器対応チェック
@@ -221,46 +296,126 @@ def calculate_omnisorter_spec(params):
         if not container_config or not container_config.get('supported'):
             continue
 
-        # スコア計算
+        # 機種の処理能力
+        processing_capacity = spec.get('processingCapacity', 1200)
+
+        # 処理能力チェック: 1台で対応できない場合は複数台必要
+        # 有効処理能力 = 処理能力 × 稼働率
+        effective_capacity_per_unit = processing_capacity * TARGET_UTILIZATION
+
+        # 必要台数の計算（処理能力ベース）
+        units_by_capacity = np.ceil(required_pcs_per_hour / effective_capacity_per_unit)
+
+        # 1件あたりの処理時間（秒）
+        # 処理能力1800pcs/h、2pcs/件の場合: 900件/h = 4秒/件
+        pieces_per_order = params['pieces_per_order']
+        orders_per_hour_per_unit = effective_capacity_per_unit / pieces_per_order
+        seconds_per_order = 3600 / orders_per_hour_per_unit
+
+        # 回転数を考慮した間口数計算
+        # 間口数 = 必要件数/時 ÷ 回転数
+        # 例: 750件/h ÷ 6回転 = 125間口
+        min_ports_needed = np.ceil(required_orders_per_hour / TARGET_ROTATION)
+
+        # 必要台数の計算（処理能力と間口数の両方を考慮）
+        # 1台あたりの間口数上限
+        total_ports = spec.get('totalPorts', 200)
+        # 容器タイプごとのports_per_blockを優先（例：オリコン50Lは24間口/ブロック）
+        ports_per_block = container_config.get('ports_per_block', spec.get('portsPerBlock', 40))
+
+        # mini機種の場合は固定構成
+        if 'mini' in model_name.lower():
+            max_ports_per_unit = total_ports
+            is_mini = True
+        else:
+            max_ports_per_unit = total_ports
+            is_mini = False
+
+        # 間口数による必要台数
+        units_by_ports = np.ceil(min_ports_needed / max_ports_per_unit)
+
+        # 最終的な必要台数（処理能力と間口数の大きい方）
+        recommended_units = int(max(units_by_capacity, units_by_ports))
+
+        # 1台あたりの間口数
+        if recommended_units > 0:
+            ports_per_unit = int(np.ceil(min_ports_needed / recommended_units))
+        else:
+            ports_per_unit = int(min_ports_needed)
+
+        # 間口数を上限内に収める
+        ports_per_unit = min(ports_per_unit, max_ports_per_unit)
+
+        # ブロック数の計算
+        if is_mini:
+            num_blocks = spec.get('blocks', 2)
+            num_intervals = total_ports
+        else:
+            # ブロック数 = 間口数 ÷ ブロックあたり間口数（切り上げ）
+            num_blocks = int(np.ceil(ports_per_unit / ports_per_block))
+            # ブロック数上限チェック
+            blocks_config = spec.get('blocks', {})
+            if isinstance(blocks_config, dict):
+                max_blocks = blocks_config.get('max', 10)
+                min_blocks = blocks_config.get('min', 1)
+            else:
+                max_blocks = 10
+                min_blocks = 1
+            num_blocks = max(min_blocks, min(num_blocks, max_blocks))
+            # 実際の間口数
+            num_intervals = num_blocks * ports_per_block
+
+        # 稼働率の計算
+        total_capacity = processing_capacity * recommended_units
+        capacity_utilization = (required_pcs_per_hour / total_capacity) * 100
+
+        # 実際の回転数
+        actual_rotation = required_orders_per_hour / (num_intervals * recommended_units)
+
+        # スコア計算（設定ファイルから読み込み）
+        model_priority = scoring_settings.get('model_priority', {})
+        mini_threshold = scoring_settings.get('mini_threshold_pcs', 3000)
+        util_settings = scoring_settings.get('utilization', {})
+        cost_penalty = scoring_settings.get('cost_penalty', {})
+
         score = 0
-        score += spec.get('priority', 5)  # 基本優先度
+
+        # 機種優先度
+        if 'mini' in model_name.lower():
+            if daily_pieces <= mini_threshold:
+                score += model_priority.get('mini_small', 150)
+            else:
+                score += model_priority.get('mini_large', 10)
+        elif model_name == 'S':
+            score += model_priority.get('S', 100)
+        elif model_name == 'M':
+            score += model_priority.get('M', 50)
+        elif model_name == 'L':
+            score += model_priority.get('L', 25)
 
         # 容器適合度
         if container_config.get('recommended'):
-            score += 20
+            score += scoring_settings.get('container_recommended_bonus', 20)
 
-        # 容量適合度
-        capacity_ratio = required_capacity_per_hour / spec.get('processingCapacity', 1200)
-        if 0.6 <= capacity_ratio <= 0.9:
-            score += 30  # 最適範囲
-        elif 0.4 <= capacity_ratio < 0.6:
-            score += 20  # 低稼働
-        elif capacity_ratio > 1:
-            score -= 10  # 能力不足
+        # 稼働率適合度
+        optimal_min = util_settings.get('optimal_min', 60)
+        optimal_max = util_settings.get('optimal_max', 85)
+        high_max = util_settings.get('high_max', 95)
 
-        # サイズ効率
-        max_product = spec.get('maxProduct', {})
-        max_area = max_product.get('L', 1) * max_product.get('W', 1)
-        if max_area > 0:
-            size_ratio = (params['product_length'] * params['product_width']) / max_area
-            if size_ratio > 0.5:
-                score += 15  # サイズ利用効率が高い
+        if optimal_min <= capacity_utilization <= optimal_max:
+            score += util_settings.get('optimal_bonus', 15)
+        elif optimal_max < capacity_utilization <= high_max:
+            score += util_settings.get('high_bonus', 10)
+        elif capacity_utilization > 100:
+            score += util_settings.get('overload_penalty', -10)
 
-        # 処理量に応じた機種優遇
-        if daily_pieces <= 3000:
-            if 'mini' in model_name.lower():
-                score += 25
-        elif daily_pieces <= 8000:
-            if model_name in ['S', 'M']:
-                score += 20
-        else:
-            if model_name in ['M', 'L']:
-                score += 25
+        # コストペナルティ
+        units_penalty = cost_penalty.get('units_penalty', 30)
+        ports_penalty = cost_penalty.get('ports_penalty', 0.1)
+        ports_baseline = cost_penalty.get('ports_baseline', 40)
 
-        # 大型商品の場合はM/L型を優遇
-        if params['product_length'] > 500 or params['product_weight'] > 3:
-            if model_name in ['M', 'L']:
-                score += 15
+        score -= (recommended_units - 1) * units_penalty
+        score -= (num_intervals - ports_baseline) * ports_penalty
 
         if score > best_score:
             best_score = score
@@ -270,63 +425,60 @@ def calculate_omnisorter_spec(params):
                 'container_config': container_config,
                 'score': score
             }
+            best_calculation = {
+                'num_intervals': num_intervals,
+                'num_blocks': num_blocks,
+                'recommended_units': recommended_units,
+                'capacity_utilization': capacity_utilization,
+                'actual_rotation': actual_rotation,
+                'min_ports_needed': min_ports_needed,
+                'seconds_per_order': seconds_per_order,
+                'orders_per_hour_per_unit': orders_per_hour_per_unit
+            }
 
     if not selected_model:
         return None
 
-    # 間口・ブロック数の計算
+    # 選択された機種の計算結果を使用
     spec = selected_model['spec']
-
-    if 'mini' in selected_model['name'].lower():
-        # mini版は固定構成
-        num_intervals = spec.get('unitCapacity', 30)
-        num_blocks = 1
-    else:
-        # 標準機の場合
-        required_capacity = required_capacity_per_hour
-        processing_time = 3600 / spec.get('processingCapacity', 1200)  # 秒/個
-        target_rotation = 2.5  # 目標回転数（時間あたり）
-
-        num_intervals = int(np.ceil(required_capacity * processing_time / (3600 / target_rotation)))
-        num_intervals = max(spec.get('minIntervals', 4), min(num_intervals, spec.get('maxIntervals', 32)))
-
-        # ブロック数（8ブロック上限）
-        if num_intervals <= 8:
-            num_blocks = 1
-        elif num_intervals <= 16:
-            num_blocks = 2
-        elif num_intervals <= 24:
-            num_blocks = 3
-        else:
-            num_blocks = 4
-
-    # 能力評価
+    num_intervals = best_calculation['num_intervals']
+    num_blocks = best_calculation['num_blocks']
+    recommended_units = best_calculation['recommended_units']
+    capacity_utilization = best_calculation['capacity_utilization']
     actual_capacity = spec.get('processingCapacity', 1200)
-    capacity_utilization = (required_capacity_per_hour / actual_capacity) * 100
-
-    # 容量不足チェック
-    if capacity_utilization > 95:
-        recommended_units = int(np.ceil(capacity_utilization / 85))
-    else:
-        recommended_units = 1
 
     # 設置寸法の計算
-    installation_length = spec.get('length', 4000)
-    installation_width = spec.get('width', 2000)
-    installation_height = spec.get('height', 2000)
+    dimensions = spec.get('dimensions', {})
+    installation_length = dimensions.get('L', 10) * 1000  # m to mm
+    installation_width = dimensions.get('W', 3) * 1000
+    installation_height = dimensions.get('H', 2.5) * 1000
 
     # 代替案の生成（上位3つ）
     alternatives = []
+    product_weight_g = params['product_weight'] * 1000  # kg → g
+
     for model_name, spec_alt in PRODUCT_SPECS.items():
         if model_name == selected_model['name']:
             continue
 
-        # 物理制約チェック
+        # 物理制約チェック（回転考慮）
         max_product_alt = spec_alt.get('maxProduct', {})
-        if (params['product_length'] <= max_product_alt.get('L', 9999) and
-            params['product_width'] <= max_product_alt.get('W', 9999) and
-            params['product_height'] <= max_product_alt.get('H', 9999) and
-            params['product_weight'] <= max_product_alt.get('weight', 9999)):
+        max_L_alt = max_product_alt.get('L', 9999)
+        max_W_alt = max_product_alt.get('W', 9999)
+        max_H_alt = max_product_alt.get('H', 9999)
+        max_weight_alt = max_product_alt.get('weight', 9999)
+
+        prod_L = params['product_length']
+        prod_W = params['product_width']
+        prod_H = params['product_height']
+
+        # 回転を考慮した適合チェック
+        fits_normal_alt = (prod_L <= max_L_alt) and (prod_W <= max_W_alt)
+        fits_rotated_alt = (prod_L <= max_W_alt) and (prod_W <= max_L_alt)
+
+        if ((fits_normal_alt or fits_rotated_alt) and
+            prod_H <= max_H_alt and
+            product_weight_g <= max_weight_alt):
 
             container_config_alt = get_container_model_config(
                 params['container_type'],
@@ -347,7 +499,8 @@ def calculate_omnisorter_spec(params):
         'selected_model': selected_model,
         'num_intervals': num_intervals,
         'num_blocks': num_blocks,
-        'required_capacity_per_hour': required_capacity_per_hour,
+        'required_capacity_per_hour': required_pcs_per_hour,
+        'required_orders_per_hour': required_orders_per_hour,
         'actual_capacity': actual_capacity,
         'capacity_utilization': capacity_utilization,
         'recommended_units': recommended_units,
@@ -355,7 +508,10 @@ def calculate_omnisorter_spec(params):
         'installation_width': installation_width,
         'installation_height': installation_height,
         'alternatives': alternatives,
-        'daily_pieces': daily_pieces
+        'daily_pieces': daily_pieces,
+        'target_rotation': TARGET_ROTATION,
+        'actual_rotation': best_calculation['actual_rotation'],
+        'min_ports_needed': best_calculation['min_ports_needed']
     }
 
 
@@ -365,208 +521,433 @@ def render_results(result, params):
         st.error("❌ 条件に適合する機種が見つかりませんでした。商品サイズまたは重量を見直してください。")
         return
 
-    st.success("✅ 推奨仕様の計算が完了しました")
+    # 表示設定を取得
+    display_settings = APP_SETTINGS.get('display', {})
+    util_thresholds = display_settings.get('utilization_thresholds', {})
+    target_util_display = display_settings.get('target_utilization_display', '60-85%')
 
-    # メトリクス表示
-    st.markdown("---")
-    st.subheader("🎯 推奨仕様")
+    # ========================================
+    # 推奨機種ヒーローセクション（コンパクト・レスポンシブ対応）
+    # ========================================
+    model_name = result['selected_model']['spec']['name']
+    units = result['recommended_units']
+    units_text = f" × {units}台" if units > 1 else ""
 
-    col1, col2, col3, col4 = st.columns(4)
+    # 機種画像の取得
+    image_filename = result['selected_model']['spec'].get('image', '')
+    image_data = get_model_image_base64(image_filename)
+
+    # レスポンシブ対応CSS
+    st.markdown("""
+    <style>
+    .hero-section {
+        background: linear-gradient(135deg, #FF6B35 0%, #F7931E 100%);
+        border-radius: 12px;
+        padding: 1rem 1.5rem;
+        margin: 0.5rem 0 1rem 0;
+        box-shadow: 0 3px 10px rgba(255, 107, 53, 0.25);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 1.5rem;
+    }
+    .hero-image {
+        flex-shrink: 0;
+        width: 280px;
+        height: 180px;
+        object-fit: contain;
+        border-radius: 8px;
+        background: rgba(255,255,255,0.15);
+        padding: 8px;
+    }
+    .hero-content {
+        text-align: left;
+        flex: 1;
+        min-width: 200px;
+    }
+    .hero-label {
+        color: rgba(255,255,255,0.9);
+        margin: 0;
+        font-size: 0.8rem;
+        font-weight: 500;
+    }
+    .hero-title {
+        color: white;
+        margin: 0.3rem 0;
+        font-size: 1.6rem;
+        font-weight: bold;
+        line-height: 1.2;
+    }
+    .hero-specs {
+        color: rgba(255,255,255,0.9);
+        margin: 0;
+        font-size: 0.85rem;
+        line-height: 1.4;
+    }
+    /* タブレット */
+    @media (max-width: 768px) {
+        .hero-section {
+            flex-direction: column;
+            padding: 1rem;
+            gap: 0.8rem;
+        }
+        .hero-image {
+            width: 220px;
+            height: 140px;
+        }
+        .hero-content {
+            text-align: center;
+        }
+        .hero-title {
+            font-size: 1.3rem;
+        }
+        .hero-specs {
+            font-size: 0.8rem;
+        }
+    }
+    /* スマホ */
+    @media (max-width: 480px) {
+        .hero-section {
+            padding: 0.8rem;
+            gap: 0.6rem;
+        }
+        .hero-image {
+            width: 180px;
+            height: 110px;
+        }
+        .hero-title {
+            font-size: 1.1rem;
+        }
+        .hero-specs {
+            font-size: 0.75rem;
+        }
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    # 画像がある場合は画像付きレイアウト、ない場合はテキストのみ
+    if image_data:
+        st.markdown(f"""
+        <div class="hero-section">
+            <img src="{image_data}" alt="{model_name}" class="hero-image">
+            <div class="hero-content">
+                <p class="hero-label">推奨機種</p>
+                <h2 class="hero-title">🤖 {model_name}{units_text}</h2>
+                <p class="hero-specs">
+                    処理能力 {result['actual_capacity']:,.0f} pcs/時<br>
+                    {result['num_intervals']}間口/台 ｜ {result['num_blocks']}ブロック/台
+                </p>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.markdown(f"""
+        <div class="hero-section" style="justify-content: center;">
+            <div class="hero-content" style="text-align: center;">
+                <p class="hero-label">推奨機種</p>
+                <h2 class="hero-title">🤖 {model_name}{units_text}</h2>
+                <p class="hero-specs">
+                    処理能力 {result['actual_capacity']:,.0f} pcs/時 ｜ {result['num_intervals']}間口/台 ｜ {result['num_blocks']}ブロック/台
+                </p>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # 問い合わせボタン（ヒーローセクション直下・コンパクト）
+    _, col_btn_center, _ = st.columns([1, 2, 1])
+    with col_btn_center:
+        st.markdown("""
+        <a href="#contact-form" style="text-decoration: none; display: block;">
+            <div style="
+                background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+                border-radius: 6px;
+                padding: 0.6rem 1.5rem;
+                text-align: center;
+                cursor: pointer;
+                box-shadow: 0 2px 6px rgba(40, 167, 69, 0.25);
+            ">
+                <span style="color: white; font-size: 0.95rem; font-weight: bold;">
+                    📩 この結果で問い合わせる
+                </span>
+            </div>
+        </a>
+        """, unsafe_allow_html=True)
+
+    # ========================================
+    # 主要指標カード（3列・コンパクト）
+    # ========================================
+    # レスポンシブCSS for metric cards
+    st.markdown("""
+    <style>
+    .metric-card {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 0.8rem;
+        text-align: center;
+        border-left: 3px solid;
+    }
+    .metric-label {
+        color: #666;
+        margin: 0;
+        font-size: 0.75rem;
+    }
+    .metric-value {
+        margin: 0.2rem 0;
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+    .metric-unit {
+        color: #888;
+        margin: 0;
+        font-size: 0.75rem;
+    }
+    @media (max-width: 768px) {
+        .metric-value {
+            font-size: 1.2rem;
+        }
+        .metric-label, .metric-unit {
+            font-size: 0.7rem;
+        }
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    col1, col2, col3 = st.columns(3)
+
+    # 稼働率の色分け（設定ファイルから閾値を取得）
+    util = result['capacity_utilization']
+    danger_threshold = util_thresholds.get('danger', 95)
+    warning_threshold = util_thresholds.get('warning', 85)
+
+    if util > danger_threshold:
+        util_color = "#dc3545"  # 赤
+        util_status = "⚠️ 過負荷"
+    elif util > warning_threshold:
+        util_color = "#ffc107"  # 黄
+        util_status = "△ 高負荷"
+    else:
+        util_color = "#28a745"  # 緑
+        util_status = "✅ 適正"
 
     with col1:
-        st.metric(
-            "推奨機種",
-            result['selected_model']['spec']['name'],
-            help="最適な機種名"
-        )
+        st.markdown(f"""
+        <div class="metric-card" style="border-color: #FF6B35;">
+            <p class="metric-label">日次処理量</p>
+            <h3 class="metric-value" style="color: #333;">{result['daily_pieces']:,.0f}</h3>
+            <p class="metric-unit">pcs/日</p>
+        </div>
+        """, unsafe_allow_html=True)
 
     with col2:
-        st.metric(
-            "処理能力",
-            f"{result['actual_capacity']:,.0f} pcs/時",
-            help="時間あたりの処理能力"
-        )
+        st.markdown(f"""
+        <div class="metric-card" style="border-color: {util_color};">
+            <p class="metric-label">稼働率 {util_status}</p>
+            <h3 class="metric-value" style="color: {util_color};">{util:.1f}%</h3>
+            <p class="metric-unit">目標: {target_util_display}</p>
+        </div>
+        """, unsafe_allow_html=True)
 
     with col3:
-        st.metric(
-            "稼働率",
-            f"{result['capacity_utilization']:.1f}%",
-            delta=f"{'過負荷' if result['capacity_utilization'] > 95 else '適正'}",
-            help="処理能力に対する稼働率"
-        )
+        st.markdown(f"""
+        <div class="metric-card" style="border-color: #17a2b8;">
+            <p class="metric-label">推奨台数</p>
+            <h3 class="metric-value" style="color: #333;">{result['recommended_units']}</h3>
+            <p class="metric-unit">台</p>
+        </div>
+        """, unsafe_allow_html=True)
 
-    with col4:
-        st.metric(
-            "推奨台数",
-            f"{result['recommended_units']}台",
-            help="適正稼働率を保つための推奨台数"
-        )
+    # ========================================
+    # 詳細仕様（タブ形式）
+    # ========================================
+    tab1, tab2, tab3 = st.tabs(["📋 機種仕様", "📦 運用条件", "📐 設置情報"])
 
-    # 詳細仕様表
-    st.markdown("---")
-    st.subheader("📊 詳細仕様")
+    with tab1:
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("**機種スペック**")
+            spec_data = pd.DataFrame({
+                "項目": ["処理能力", "間口数", "ブロック数"],
+                "値": [
+                    f"{result['actual_capacity']:,.0f} pcs/時",
+                    f"{result['num_intervals']} 間口",
+                    f"{result['num_blocks']} ブロック"
+                ]
+            })
+            st.dataframe(spec_data, use_container_width=True, hide_index=True)
 
-    col1, col2 = st.columns(2)
+        with col2:
+            st.markdown("**対応商品サイズ**")
+            max_prod = result['selected_model']['spec']['maxProduct']
+            size_data = pd.DataFrame({
+                "項目": ["最大長さ", "最大幅", "最大高さ", "最大重量"],
+                "値": [
+                    f"{max_prod['L']} mm",
+                    f"{max_prod['W']} mm",
+                    f"{max_prod['H']} mm",
+                    f"{max_prod['weight'] / 1000:.0f} kg"
+                ]
+            })
+            st.dataframe(size_data, use_container_width=True, hide_index=True)
 
-    with col1:
-        st.markdown("#### 機種情報")
-        spec_data = {
-            "項目": [
-                "機種名",
-                "処理能力",
-                "間口数",
-                "ブロック数",
-                "最大商品寸法",
-                "最大商品重量"
-            ],
-            "仕様": [
-                result['selected_model']['spec']['name'],
-                f"{result['actual_capacity']:,.0f} pcs/時",
-                f"{result['num_intervals']}間口",
-                f"{result['num_blocks']}ブロック",
-                f"{result['selected_model']['spec']['maxProduct']['L']}×{result['selected_model']['spec']['maxProduct']['W']}×{result['selected_model']['spec']['maxProduct']['H']}mm",
-                f"{result['selected_model']['spec']['maxProduct']['weight']}kg"
-            ]
-        }
-        st.dataframe(
-            pd.DataFrame(spec_data),
-            use_container_width=True,
-            hide_index=True
-        )
+    with tab2:
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("**入力条件**")
+            input_data = pd.DataFrame({
+                "項目": ["日次出荷件数", "平均ピース数/件", "作業時間", "ピーク倍率"],
+                "値": [
+                    f"{params['daily_orders']:,} 件",
+                    f"{params['pieces_per_order']:.1f} 個",
+                    f"{params['working_hours']} 時間",
+                    f"{params['peak_ratio']:.1f} 倍"
+                ]
+            })
+            st.dataframe(input_data, use_container_width=True, hide_index=True)
 
-        st.markdown("#### 設置寸法")
-        installation_data = {
+        with col2:
+            st.markdown("**容器対応**")
+            container_config = result['selected_model']['container_config']
+            container_data = pd.DataFrame({
+                "項目": ["容器タイプ", "対応状況", "推奨度"],
+                "値": [
+                    params['container_type'],
+                    "✅ 対応" if container_config.get('supported') else "❌ 非対応",
+                    "⭐ 推奨" if container_config.get('recommended') else "〇 可能"
+                ]
+            })
+            st.dataframe(container_data, use_container_width=True, hide_index=True)
+
+        # 計算内訳セクション
+        st.markdown("---")
+        st.markdown("**📊 計算内訳**")
+        col3, col4 = st.columns(2)
+
+        with col3:
+            st.markdown("**処理能力計算**")
+            required_orders = result.get('required_orders_per_hour', 0)
+            calc_data = pd.DataFrame({
+                "項目": ["必要処理能力", "必要件数/時", "目標回転数", "実回転数"],
+                "値": [
+                    f"{result['required_capacity_per_hour']:,.0f} pcs/時",
+                    f"{required_orders:,.1f} 件/時",
+                    f"{result.get('target_rotation', 6)} 回転/時",
+                    f"{result.get('actual_rotation', 0):.1f} 回転/時"
+                ]
+            })
+            st.dataframe(calc_data, use_container_width=True, hide_index=True)
+
+        with col4:
+            st.markdown("**間口数計算**")
+            min_ports = result.get('min_ports_needed', 0)
+            ports_data = pd.DataFrame({
+                "項目": ["理論最小間口数", "構成間口数", "推奨台数", "合計間口数"],
+                "値": [
+                    f"{min_ports:.0f} 間口",
+                    f"{result['num_intervals']} 間口/台",
+                    f"{result['recommended_units']} 台",
+                    f"{result['num_intervals'] * result['recommended_units']} 間口"
+                ]
+            })
+            st.dataframe(ports_data, use_container_width=True, hide_index=True)
+
+        # 計算式の説明
+        st.caption(f"""
+        💡 **計算ロジック**:
+        必要処理能力 = ({params['daily_orders']:,}件 × {params['pieces_per_order']:.1f}pcs) ÷ {params['working_hours']}h × {params['peak_ratio']:.1f} = {result['required_capacity_per_hour']:,.0f} pcs/時
+        | 理論最小間口数 = {required_orders:.1f}件/時 ÷ {result.get('target_rotation', 6)}回転 = {min_ports:.0f}間口
+        """)
+
+    with tab3:
+        st.markdown("**設置寸法（概算）**")
+        install_data = pd.DataFrame({
             "項目": ["長さ", "幅", "高さ"],
-            "寸法 (mm)": [
-                f"{result['installation_length']:,.0f}",
-                f"{result['installation_width']:,.0f}",
-                f"{result['installation_height']:,.0f}"
+            "寸法": [
+                f"{result['installation_length']:,.0f} mm",
+                f"{result['installation_width']:,.0f} mm",
+                f"{result['installation_height']:,.0f} mm"
             ]
-        }
-        st.dataframe(
-            pd.DataFrame(installation_data),
-            use_container_width=True,
-            hide_index=True
-        )
-
-    with col2:
-        st.markdown("#### 運用条件")
-        operation_data = {
-            "項目": [
-                "日次出荷件数",
-                "平均ピース数/件",
-                "日次総ピース数",
-                "必要処理能力",
-                "作業時間",
-                "ピーク倍率"
-            ],
-            "値": [
-                f"{params['daily_orders']:,.0f}件",
-                f"{params['pieces_per_order']:.1f}個",
-                f"{result['daily_pieces']:,.0f}個",
-                f"{result['required_capacity_per_hour']:,.0f} pcs/時",
-                f"{params['working_hours']}時間",
-                f"{params['peak_ratio']:.1f}倍"
-            ]
-        }
-        st.dataframe(
-            pd.DataFrame(operation_data),
-            use_container_width=True,
-            hide_index=True
-        )
-
-        st.markdown("#### 容器対応")
-        container_config = result['selected_model']['container_config']
-        container_status = {
-            "項目": ["容器タイプ", "対応状況", "推奨度"],
-            "値": [
-                params['container_type'],
-                "✅ 対応" if container_config.get('supported') else "❌ 非対応",
-                "⭐ 推奨" if container_config.get('recommended') else "△ 可能"
-            ]
-        }
-        st.dataframe(
-            pd.DataFrame(container_status),
-            use_container_width=True,
-            hide_index=True
-        )
-
-    # 間口構成グラフ
-    st.markdown("---")
-    st.subheader("📈 間口構成")
-
-    fig = go.Figure()
-
-    # 間口構成の可視化
-    fig.add_trace(go.Bar(
-        x=[f"ブロック{i+1}" for i in range(result['num_blocks'])],
-        y=[result['num_intervals'] // result['num_blocks']] * result['num_blocks'],
-        name="間口数",
-        marker=dict(color='#FF6B35'),
-        text=[f"{result['num_intervals'] // result['num_blocks']}間口"] * result['num_blocks'],
-        textposition='auto'
-    ))
-
-    fig.update_layout(
-        title=f"間口構成: 合計{result['num_intervals']}間口 / {result['num_blocks']}ブロック",
-        xaxis_title="ブロック",
-        yaxis_title="間口数",
-        height=400,
-        showlegend=False
-    )
-
-    st.plotly_chart(fig, use_container_width=True)
+        })
+        st.dataframe(install_data, use_container_width=True, hide_index=True)
+        st.caption("※ 実際の設置寸法は現地調査により決定します")
 
     # 能力チャート
+    st.markdown("---")
     col1, col2 = st.columns(2)
 
     with col1:
-        # 処理能力vs必要能力
+        # 処理能力vs必要能力（複数台の場合は合計能力を表示）
+        units = result['recommended_units']
+        total_capacity = result['actual_capacity'] * units
+
         fig_capacity = go.Figure()
 
         fig_capacity.add_trace(go.Bar(
             x=["必要能力", "実能力"],
-            y=[result['required_capacity_per_hour'], result['actual_capacity']],
+            y=[result['required_capacity_per_hour'], total_capacity],
             marker=dict(color=['#FFA500', '#FF6B35']),
-            text=[f"{result['required_capacity_per_hour']:,.0f}", f"{result['actual_capacity']:,.0f}"],
+            text=[f"{result['required_capacity_per_hour']:,.0f}", f"{total_capacity:,.0f}"],
             textposition='auto'
         ))
 
+        # タイトルに台数を反映
+        title_text = f"処理能力比較 (pcs/時)" if units == 1 else f"処理能力比較 (pcs/時) - {units}台合計"
+
         fig_capacity.update_layout(
-            title="処理能力比較 (pcs/時)",
+            title=title_text,
             yaxis_title="処理能力",
-            height=350,
-            showlegend=False
+            height=280,
+            showlegend=False,
+            margin=dict(t=40, b=30, l=40, r=20)
         )
 
         st.plotly_chart(fig_capacity, use_container_width=True)
 
+        # 複数台の場合は注記を追加
+        if units > 1:
+            st.caption(f"※ 実能力は {result['actual_capacity']:,.0f} pcs/時 × {units}台 = {total_capacity:,.0f} pcs/時")
+
     with col2:
-        # 稼働率ゲージ
+        # 稼働率ゲージ（ステータス表示付き）
+        util_value = result['capacity_utilization']
+
+        # ステータス判定
+        if util_value > danger_threshold:
+            gauge_status = "⚠️ 過負荷"
+            status_color = "#dc3545"
+        elif util_value > warning_threshold:
+            gauge_status = "△ 高負荷"
+            status_color = "#ffc107"
+        elif util_value >= 60:
+            gauge_status = "✅ 適正"
+            status_color = "#28a745"
+        else:
+            gauge_status = "△ 低稼働"
+            status_color = "#6c757d"
+
         fig_gauge = go.Figure(go.Indicator(
-            mode="gauge+number+delta",
-            value=result['capacity_utilization'],
+            mode="gauge+number",
+            value=util_value,
+            number={'suffix': '%', 'font': {'size': 32}},
             domain={'x': [0, 1], 'y': [0, 1]},
-            title={'text': "稼働率 (%)"},
-            delta={'reference': 85, 'increasing': {'color': "red"}},
+            title={'text': f"稼働率<br><span style='font-size:0.8em;color:{status_color}'>{gauge_status}</span>"},
             gauge={
                 'axis': {'range': [None, 120]},
                 'bar': {'color': "#FF6B35"},
                 'steps': [
                     {'range': [0, 60], 'color': "lightgray"},
-                    {'range': [60, 85], 'color': "lightgreen"},
-                    {'range': [85, 95], 'color': "yellow"},
-                    {'range': [95, 120], 'color': "red"}
+                    {'range': [60, warning_threshold], 'color': "lightgreen"},
+                    {'range': [warning_threshold, danger_threshold], 'color': "yellow"},
+                    {'range': [danger_threshold, 120], 'color': "red"}
                 ],
                 'threshold': {
                     'line': {'color': "red", 'width': 4},
                     'thickness': 0.75,
-                    'value': 95
+                    'value': danger_threshold
                 }
             }
         ))
 
-        fig_gauge.update_layout(height=350)
+        fig_gauge.update_layout(height=280, margin=dict(t=40, b=20, l=20, r=20))
         st.plotly_chart(fig_gauge, use_container_width=True)
 
     # 代替案
@@ -583,23 +964,68 @@ def render_results(result, params):
                     max_prod = alt['spec'].get('maxProduct', {})
                     st.metric("最大寸法", f"{max_prod.get('L', 0)}×{max_prod.get('W', 0)}mm")
                 with col3:
-                    container_status = "✅ 推奨" if alt['container_config'].get('recommended') else "△ 可能"
+                    container_status = "✅ 推奨" if alt['container_config'].get('recommended') else "〇 可能"
                     st.metric("容器対応", container_status)
 
+    # まとめ仕分けモードの提案（複数台の場合）
+    if result['recommended_units'] > 1:
+        st.markdown("---")
+        st.markdown(f"""
+        <div style="
+            background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+            border-radius: 10px;
+            padding: 1rem 1.2rem;
+            margin: 0.5rem 0;
+            color: white;
+        ">
+            <h4 style="margin: 0 0 0.3rem 0; color: white; font-size: 1rem;">💡 1台で対応できる可能性があります</h4>
+            <p style="margin: 0; opacity: 0.95; font-size: 0.85rem;">
+                現在 <strong>{result['recommended_units']}台</strong> 推奨ですが、
+                <strong>「まとめ仕分けモード」</strong>で<strong>1台運用</strong>が可能な場合があります。
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        with st.expander("📦 まとめ仕分けモードとは？", expanded=False):
+            st.markdown("""
+            **生産性をさらにアップするブースト機能**です。同一SKUの商品を複数個同時に仕分けできます。
+
+            | 機能 | 説明 |
+            |------|------|
+            | **複数個を同時投入** | 同一SKUを重ねて流す |
+            | **ボール単位の仕分け** | バケットに入れて仕分け |
+
+            **例**: 1投入で平均4pcs以上まとめれば、処理能力が**4倍**に。
+            """)
+
+            # 1台で対応できる場合のシミュレーション
+            required_pcs_h = result['required_capacity_per_hour']
+            model_capacity = result['actual_capacity']
+            batch_mode_max = display_settings.get('batch_mode_max_pcs', 10)
+
+            # 1台で対応するために必要なpcs/投入
+            # 機種の処理能力（投入回数/h）に対して必要なpcs/hを達成するための倍率
+            if model_capacity > 0:
+                effective_capacity = model_capacity * 0.85  # 稼働率考慮
+                needed_pcs_per_input = np.ceil(required_pcs_h / effective_capacity)
+
+                if needed_pcs_per_input <= batch_mode_max and needed_pcs_per_input > 1:
+                    st.success(f"""
+                    📊 **1台で運用するには**: 1投入で同一SKUを平均 **{int(needed_pcs_per_input)}pcs以上** まとめて投入できれば対応可能です。
+                    （必要処理能力: {required_pcs_h:,.0f} pcs/h ÷ 有効能力: {effective_capacity:,.0f} 投入/h = {needed_pcs_per_input:.1f} pcs/投入）
+                    """)
+
     # 注意事項
-    if result['capacity_utilization'] > 95:
+    if result['capacity_utilization'] > danger_threshold:
         st.warning(f"""
-        ⚠️ **注意**: 稼働率が95%を超えています（{result['capacity_utilization']:.1f}%）
+        ⚠️ **注意**: 稼働率が{danger_threshold}%を超えています（{result['capacity_utilization']:.1f}%）
 
         - 推奨台数: {result['recommended_units']}台での運用を検討してください
         - またはより大型の機種への変更をご検討ください
         """)
 
-    st.info("""
-    💡 **ご注意**
-    - この試算は簡易的な目安です。正確な仕様提案には詳細な現地調査が必要です。
-    - 実際の導入には、レイアウト、動線、ピッキング方法などの詳細検討が必要です。
-    - お見積りやデモ見学のご希望は、下記の問い合わせフォームからご連絡ください。
+    st.caption("""
+    💡 **ご注意**: この試算は簡易的な目安です。正確な仕様には現地調査が必要です。お見積り・デモ見学は下記フォームからどうぞ。
     """)
 
 
@@ -608,28 +1034,47 @@ def main():
     # アプリ初期化
     initialize_app()
 
-    # カスタムCSS
+    # カスタムCSS（レスポンシブ対応）
     st.markdown("""
     <style>
     .main .block-container {
-        max-width: 1400px;
-        padding-top: 2rem;
-        padding-bottom: 2rem;
+        max-width: 1200px;
+        padding-top: 1rem;
+        padding-bottom: 1rem;
     }
     .stMetric {
         background-color: #f0f2f6;
-        padding: 1rem;
+        padding: 0.8rem;
         border-radius: 0.5rem;
+    }
+    /* タブのパディング調整 */
+    .stTabs [data-baseweb="tab-panel"] {
+        padding-top: 0.5rem;
+    }
+    /* データフレームのコンパクト化 */
+    .stDataFrame {
+        font-size: 0.85rem;
+    }
+    /* スマホ対応 */
+    @media (max-width: 768px) {
+        .main .block-container {
+            padding-left: 1rem;
+            padding-right: 1rem;
+        }
     }
     </style>
     """, unsafe_allow_html=True)
 
-    # ヘッダー
-    st.title("🤖 OmniSorter 簡易試算ツール")
+    # ヘッダー（センタリング）
     st.markdown("""
-    OmniSorterの機種選定と仕様を簡易的に試算するツールです。
-    作業条件と商品仕様を入力して、最適な機種を確認してください。
-    """)
+    <div style="text-align: center; margin-bottom: 1rem;">
+        <h1 style="margin: 0; font-size: 2rem;">🤖 OmniSorter おすすめ試算ツール</h1>
+        <p style="color: #666; margin: 0.5rem 0 0 0; font-size: 0.95rem;">
+            OmniSorterの機種と仕様を簡易的に試算します。<br>
+            あなたの業務にあうOmniSorterを簡単に見つけます！
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
 
     # 入力フォーム
     st.markdown("---")
@@ -656,8 +1101,9 @@ def main():
     if 'last_result' in st.session_state and 'last_params' in st.session_state:
         render_results(st.session_state['last_result'], st.session_state['last_params'])
 
-    # 問い合わせフォーム
+    # 問い合わせフォーム（アンカー付き）
     st.markdown("---")
+    st.markdown('<div id="contact-form"></div>', unsafe_allow_html=True)
     st.markdown("---")
     # 試算結果があれば問い合わせフォームに渡す
     inquiry_params = st.session_state.get('last_params', None)
@@ -666,7 +1112,7 @@ def main():
 
     # フッター
     st.markdown("---")
-    st.caption("© 2025 Bridgetown Engineering Co., Ltd. All rights reserved.")
+    st.caption("© 2026 ForeGroove Co., Ltd. All rights reserved.")
 
 
 if __name__ == "__main__":

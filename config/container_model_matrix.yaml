@@ -16,7 +16,7 @@ version: "1.0"
 
 # 対応容器タイプの定義
 container_types:
-  - "標準トート"
+  - "OS標準トート"
   - "オリコン30L"
   - "オリコン40L"
   - "オリコン50L"
@@ -24,7 +24,7 @@ container_types:
 # 機種別容器対応マトリクス
 matrix:
   mini-cart:
-    標準トート:
+    OS標準トート:
       max_rows: 4
       max_columns: 5
       max_sides: 2
@@ -66,7 +66,7 @@ matrix:
       configurable: false
 
   mini-fixed:
-    標準トート:
+    OS標準トート:
       max_rows: 0
       max_columns: 0
       max_sides: 0
@@ -108,7 +108,7 @@ matrix:
       configurable: true
 
   S:
-    標準トート:
+    OS標準トート:
       max_rows: 5
       max_columns: 5
       max_sides: 2
@@ -150,21 +150,21 @@ matrix:
       configurable: true
 
   M:
-    標準トート:
-      max_rows: 5
+    OS標準トート:
+      max_rows: 4
       max_columns: 5
       max_sides: 2
-      ports_per_block: 50
+      ports_per_block: 40
       default_blocks: 4
       recommended: true
       supported: true
       note: "M型標準構成"
       configurable: true
     オリコン30L:
-      max_rows: 5
+      max_rows: 4
       max_columns: 5
       max_sides: 2
-      ports_per_block: 50
+      ports_per_block: 40
       default_blocks: 4
       recommended: true
       supported: true
@@ -192,7 +192,7 @@ matrix:
       configurable: true
 
   L:
-    標準トート:
+    OS標準トート:
       max_rows: 4
       max_columns: 4
       max_sides: 2
