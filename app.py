@@ -62,7 +62,7 @@ def get_model_image_base64(image_filename: str) -> str:
 
 # ページ設定
 st.set_page_config(
-    page_title="OmniSorter 簡易試算ツール",
+    page_title="OmniSorter かんたんシミュレーション",
     page_icon="🤖",
     layout="wide",
     initial_sidebar_state="collapsed"
@@ -1288,10 +1288,10 @@ def main():
     # ヘッダー（センタリング）
     st.markdown("""
     <div style="text-align: center; margin-bottom: 1rem;">
-        <h1 style="margin: 0; font-size: 2rem;">🤖 OmniSorter おすすめ試算ツール</h1>
+        <h1 style="margin: 0; font-size: 2rem;">🤖 OmniSorter かんたんシミュレーション</h1>
         <p style="color: #666; margin: 0.5rem 0 0 0; font-size: 0.95rem;">
-            OmniSorterの機種と仕様を簡易的に試算します。<br>
-            あなたの業務にあうOmniSorterを簡単に見つけます！
+            OmniSorterの機種と仕様を簡易的にシミュレーションします。<br>
+            あなたの業務にあうOmniSorterを5分で見つけます！
         </p>
     </div>
     """, unsafe_allow_html=True)
