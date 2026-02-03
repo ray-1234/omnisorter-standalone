@@ -14,7 +14,7 @@ version: "1.0"
 models:
   mini-cart:
     name: "OmniSorter mini（カート式）"
-    image: "Omnisorter_mini.jpg"
+    image: "OmniSorter_mini.jpg"
     dimensions:
       L: 5.6
       W: 2.6
@@ -44,7 +44,7 @@ models:
 
   mini-fixed:
     name: "OmniSorter mini（固定式）"
-    image: "Omnisorter_mini.jpg"
+    image: "OmniSorter_mini.jpg"
     dimensions:
       L: 5.6
       W: 2.6
@@ -76,7 +76,7 @@ models:
 
   S:
     name: "OmniSorter Sサイズ（標準機）"
-    image: "Omnisorter.jpg"
+    image: "OmniSorter.jpg"
     dimensions:
       L: 11.7
       W: 3.4
@@ -111,7 +111,7 @@ models:
 
   M:
     name: "OmniSorter Mサイズ（標準機）"
-    image: "Omnisorter.jpg"
+    image: "OmniSorter.jpg"
     dimensions:
       L: 13.0
       W: 4.4
@@ -146,7 +146,7 @@ models:
 
   L:
     name: "OmniSorter Lサイズ（標準機）"
-    image: "Omnisorter.jpg"
+    image: "OmniSorter.jpg"
     dimensions:
       L: 14.7
       W: 6.1
