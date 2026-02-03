@@ -257,7 +257,8 @@ def load_app_settings(file_path: Optional[Path] = None) -> Dict[str, Any]:
     defaults = {
         'calculation': {
             'target_utilization': 0.95,
-            'target_rotation': 6
+            'target_rotation': 5,  # 目標回転数（回転/時）
+            'max_units': 2  # 台数上限
         },
         'scoring': {
             'model_priority': {'S': 100, 'M': 50, 'L': 25, 'mini_small': 150, 'mini_large': 10},

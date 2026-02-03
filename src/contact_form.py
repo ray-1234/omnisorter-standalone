@@ -25,6 +25,16 @@ def validate_email(email: str) -> bool:
     return re.match(pattern, email) is not None
 
 
+def format_number(value, default='N/A'):
+    """数値を安全にフォーマット（カンマ区切り）"""
+    if value is None:
+        return default
+    try:
+        return f"{value:,.0f}"
+    except (ValueError, TypeError):
+        return str(value) if value else default
+
+
 def format_calculation_data(params: dict, result: dict) -> str:
     """
     計算結果をメール本文用にフォーマット
@@ -42,14 +52,12 @@ def format_calculation_data(params: dict, result: dict) -> str:
     lines = []
     lines.append("\n━━━━━━━━━━━━━━━━━━━━━━")
     lines.append("【試算入力条件】")
-    lines.append(f"  出荷量: {params.get('daily_shipment', 'N/A'):,} ピース/日")
-    lines.append(f"  稼働時間: {params.get('operating_hours', 'N/A')} 時間/日")
+    lines.append(f"  日次出荷件数: {format_number(params.get('daily_orders'))} 件/日")
+    lines.append(f"  平均ピース数/件: {params.get('pieces_per_order', 'N/A')} pcs")
+    lines.append(f"  作業時間: {params.get('working_hours', 'N/A')} 時間/日")
     lines.append(f"  ピーク倍率: {params.get('peak_ratio', 'N/A')} 倍")
-    lines.append(f"  オーダー数: {params.get('order_count', 'N/A'):,} 件/日")
-    lines.append(f"  商品サイズ(L×W×H): {params.get('max_length', 'N/A')} × {params.get('max_width', 'N/A')} × {params.get('max_height', 'N/A')} mm")
-    lines.append(f"  最大重量: {params.get('max_weight', 'N/A'):,} g")
-    lines.append(f"  設置可能面積: {params.get('floor_length', 'N/A')} × {params.get('floor_width', 'N/A')} m")
-    lines.append(f"  天井高: {params.get('ceiling_height', 'N/A')} m")
+    lines.append(f"  商品サイズ(L×W×H): {params.get('product_length', 'N/A')} × {params.get('product_width', 'N/A')} × {params.get('product_height', 'N/A')} mm")
+    lines.append(f"  商品重量: {params.get('product_weight', 'N/A')} kg")
     lines.append(f"  容器タイプ: {params.get('container_type', 'N/A')}")
 
     lines.append("\n━━━━━━━━━━━━━━━━━━━━━━")
@@ -59,31 +67,109 @@ def format_calculation_data(params: dict, result: dict) -> str:
     if 'selected_model' in result and result['selected_model']:
         model = result['selected_model']
         spec = model.get('spec', {})
-        lines.append(f"  推奨機種: {spec.get('name', model.get('model_id', 'N/A'))}")
-        lines.append(f"  必要台数: {model.get('units', 'N/A')} 台")
-        lines.append(f"  ブロック数: {model.get('blocks', 'N/A')} ブロック")
-        lines.append(f"  間口数: {model.get('ports', 'N/A')} 口")
-        lines.append(f"  処理能力: {model.get('capacity', {}).get('min', 'N/A'):,} - {model.get('capacity', {}).get('max', 'N/A'):,} pcs/時")
-        lines.append(f"  設置寸法(L×W×H): {model.get('dimensions', {}).get('L', 'N/A')} × {model.get('dimensions', {}).get('W', 'N/A')} × {model.get('dimensions', {}).get('H', 'N/A')} m")
+        lines.append(f"  推奨機種: {spec.get('name', 'N/A')}")
+        lines.append(f"  必要台数: {result.get('recommended_units', 'N/A')} 台")
+        lines.append(f"  ブロック数: {result.get('num_blocks', 'N/A')} ブロック/台")
+        lines.append(f"  間口数: {result.get('num_intervals', 'N/A')} 間口/台")
+        lines.append(f"  処理能力: {format_number(result.get('actual_capacity'))} pcs/時")
 
-    # 要求処理能力
-    if 'required_capacity' in result:
-        lines.append(f"\n  必要処理能力: {result.get('required_capacity', 'N/A'):,} pcs/時")
+    # 日次処理量
+    if 'daily_pieces' in result:
+        lines.append(f"  日次処理量: {format_number(result.get('daily_pieces'))} pcs/日")
 
-    # 選定理由
-    if 'selection_reason' in result:
-        lines.append(f"  選定理由: {result.get('selection_reason', 'N/A')}")
+    # 必要処理能力
+    if 'required_capacity_per_hour' in result:
+        lines.append(f"  必要処理能力: {format_number(result.get('required_capacity_per_hour'))} pcs/時")
+
+    # 稼働率
+    if 'capacity_utilization' in result:
+        lines.append(f"  稼働率: {result.get('capacity_utilization', 0):.1f}%")
 
     lines.append("━━━━━━━━━━━━━━━━━━━━━━")
 
     return "\n".join(lines)
 
 
+def send_confirmation_email(name: str, email: str, company: str,
+                           inquiry_type: str, message: str,
+                           params: dict = None, result: dict = None) -> bool:
+    """
+    問い合わせ者への確認メールを送信
+
+    Args:
+        name: 氏名
+        email: 送信先メールアドレス
+        company: 会社名
+        inquiry_type: 問い合わせ種別
+        message: 問い合わせ内容
+        params: 試算入力パラメータ（オプション）
+        result: 試算結果（オプション）
+
+    Returns:
+        bool: 送信成功した場合True
+    """
+    try:
+        smtp_config = st.secrets.get("smtp", {})
+        if not smtp_config:
+            return False
+
+        # 計算データのフォーマット
+        calculation_section = format_calculation_data(params, result)
+
+        # 確認メール本文
+        body = f"""{name} 様
+
+このたびはOmniSorterに関するお問い合わせをいただき、
+誠にありがとうございます。
+
+以下の内容でお問い合わせを承りました。
+担当者より3営業日以内にご連絡させていただきます。
+
+━━━━━━━━━━━━━━━━━━━━━━
+【お問い合わせ内容】
+━━━━━━━━━━━━━━━━━━━━━━
+会社名: {company}
+お名前: {name}
+問い合わせ種別: {inquiry_type}
+
+■ ご記入内容
+{message}
+{calculation_section}
+━━━━━━━━━━━━━━━━━━━━━━
+
+ご不明な点がございましたら、お気軽にご連絡ください。
+
+━━━━━━━━━━━━━━━━━━━━━━
+署名
+━━━━━━━━━━━━━━━━━━━━━━
+
+※このメールは自動送信されています。
+※心当たりのない場合は、お手数ですが本メールを破棄してください。
+"""
+
+        msg = MIMEMultipart()
+        msg['From'] = smtp_config.get('from_email')
+        msg['To'] = email
+        msg['Subject'] = f"【OmniSorter】お問い合わせありがとうございます（{inquiry_type}）"
+        msg.attach(MIMEText(body, 'plain', 'utf-8'))
+
+        with smtplib.SMTP(smtp_config['host'], int(smtp_config['port'])) as server:
+            server.starttls()
+            server.login(smtp_config['username'], smtp_config['password'])
+            server.send_message(msg)
+
+        return True
+
+    except Exception:
+        # 確認メール送信失敗は致命的エラーではないため、静かに失敗
+        return False
+
+
 def send_inquiry_email(company: str, name: str, email: str, phone: str,
                       inquiry_type: str, message: str,
                       params: dict = None, result: dict = None) -> bool:
     """
-    問い合わせメールを送信
+    問い合わせメールを送信（社内向け + 問い合わせ者への確認メール）
 
     Args:
         company: 会社名
@@ -109,7 +195,7 @@ def send_inquiry_email(company: str, name: str, email: str, phone: str,
         # 計算データのフォーマット
         calculation_section = format_calculation_data(params, result)
 
-        # メール本文を作成
+        # メール本文を作成（社内向け）
         body = f"""
 新規お問い合わせがありました
 
@@ -144,11 +230,22 @@ def send_inquiry_email(company: str, name: str, email: str, phone: str,
         msg['Subject'] = f"[OmniSorter] {inquiry_type} - {company}"
         msg.attach(MIMEText(body, 'plain', 'utf-8'))
 
-        # SMTP経由で送信
+        # SMTP経由で送信（社内向け）
         with smtplib.SMTP(smtp_config['host'], int(smtp_config['port'])) as server:
             server.starttls()
             server.login(smtp_config['username'], smtp_config['password'])
             server.send_message(msg)
+
+        # 問い合わせ者への確認メールを送信
+        send_confirmation_email(
+            name=name,
+            email=email,
+            company=company,
+            inquiry_type=inquiry_type,
+            message=message,
+            params=params,
+            result=result
+        )
 
         return True
 

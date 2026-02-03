@@ -124,7 +124,7 @@ models:
     processingCapacity: 1800      # 処理能力 (pcs/時)
     totalPorts: 200               # 間口数上限 (5ブロック×50)
     blocks:
-      min: 1
+      min: 2
       max: 10
     portsPerBlock: 40             # ブロックあたり間口数 (5×5×2)
     portsConfig:
@@ -159,7 +159,7 @@ models:
     processingCapacity: 1800      # 処理能力 (pcs/時)
     totalPorts: 160               # 間口数上限 (5ブロック×32, 4×4制限)
     blocks:
-      min: 1
+      min: 2
       max: 10
     portsPerBlock: 32             # ブロックあたり間口数 (4×4×2)
     portsConfig:

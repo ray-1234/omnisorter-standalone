@@ -119,7 +119,7 @@ def render_input_form():
 
         st.markdown("#### 運用条件")
         daily_orders = st.number_input(
-            "日次出荷件数",
+            "平均日次出荷件数",
             min_value=1,
             max_value=50000,
             value=ui_defaults.get('daily_orders', 1000),
@@ -131,7 +131,7 @@ def render_input_form():
         pieces_per_order = st.number_input(
             "平均ピース数/件",
             min_value=0.1,
-            max_value=100.0,
+            max_value=1000.0,
             value=ui_defaults.get('pieces_per_order', 2.0),
             step=0.1,
             key="input_pieces_per_order",
@@ -193,8 +193,8 @@ def render_input_form():
             )
 
         container_type = st.selectbox(
-            "使用容器タイプ",
-            ["OS標準トート", "オリコン30L", "オリコン40L", "オリコン50L", "不明"],
+            "出荷容器タイプ",
+            ["OS標準トート", "オリコン30L", "オリコン40L", "オリコン50L", "その他"],
             key="input_container_type"
         )
 
@@ -244,7 +244,14 @@ def calculate_omnisorter_spec(params):
     scoring_settings = APP_SETTINGS.get('scoring', {})
 
     TARGET_UTILIZATION = calc_settings.get('target_utilization', 0.95)
-    TARGET_ROTATION = calc_settings.get('target_rotation', 6)
+    TARGET_ROTATION = max(1, calc_settings.get('target_rotation', 5))  # 目標回転数（最小1）
+    MAX_UNITS = calc_settings.get('max_units', 2)  # 台数上限（デフォルト2台）
+
+    # デバッグ: 設定値を表示（UIにも出力）
+    debug_info = []
+    debug_info.append(f"MAX_UNITS: {MAX_UNITS}")
+    debug_info.append(f"入力: {params['daily_orders']}件×{params['pieces_per_order']}pcs, {params['working_hours']}h, peak={params['peak_ratio']}")
+    debug_info.append(f"商品: {params['product_length']}x{params['product_width']}x{params['product_height']}mm")
 
     # 必要処理能力の計算
     daily_pieces = params['daily_orders'] * params['pieces_per_order']
@@ -256,9 +263,11 @@ def calculate_omnisorter_spec(params):
     required_pcs_per_hour = (daily_pieces / working_hours) * peak_ratio
     required_orders_per_hour = (daily_orders / working_hours) * peak_ratio
 
+    debug_info.append(f"必要能力: {required_pcs_per_hour:.0f} pcs/h, {required_orders_per_hour:.0f} 件/h")
+
     # 機種選定ロジック
     selected_model = None
-    best_score = -1
+    best_score = float('-inf')  # 負のスコアでも選択できるように
     best_calculation = None
 
     for model_name, spec in PRODUCT_SPECS.items():
@@ -284,16 +293,18 @@ def calculate_omnisorter_spec(params):
 
         # どちらの向きでも入らない、または高さ・重量がオーバーなら除外
         if (not fits_normal and not fits_rotated) or prod_H > max_H or product_weight_g > max_weight:
+            debug_info.append(f"{model_name}: SKIP(サイズ) max={max_L}x{max_W}x{max_H}mm")
             continue
 
         # 容器対応チェック
         container_config = get_container_model_config(
-            params['container_type'],
             model_name,
+            params['container_type'],
             CONTAINER_MODEL_MATRIX
         )
 
         if not container_config or not container_config.get('supported'):
+            debug_info.append(f"{model_name}: SKIP(容器非対応) {params['container_type']}")
             continue
 
         # 機種の処理能力
@@ -307,15 +318,18 @@ def calculate_omnisorter_spec(params):
         units_by_capacity = np.ceil(required_pcs_per_hour / effective_capacity_per_unit)
 
         # 1件あたりの処理時間（秒）
-        # 処理能力1800pcs/h、2pcs/件の場合: 900件/h = 4秒/件
         pieces_per_order = params['pieces_per_order']
-        orders_per_hour_per_unit = effective_capacity_per_unit / pieces_per_order
-        seconds_per_order = 3600 / orders_per_hour_per_unit
+        seconds_per_pcs = 3600 / processing_capacity
+        seconds_per_order = pieces_per_order * seconds_per_pcs
 
-        # 回転数を考慮した間口数計算
-        # 間口数 = 必要件数/時 ÷ 回転数
-        # 例: 750件/h ÷ 6回転 = 125間口
-        min_ports_needed = np.ceil(required_orders_per_hour / TARGET_ROTATION)
+        # 処理能力ベースの件数/時/台
+        orders_per_hour_per_unit = effective_capacity_per_unit / pieces_per_order
+
+        # 目標回転数を使用した間口数計算
+        # 間口数 = 必要件数/時 ÷ 目標回転数
+        # 目標回転数: 1間口が1時間に何件処理するかの目標値
+        effective_rotation = TARGET_ROTATION
+        min_ports_needed = np.ceil(required_orders_per_hour / effective_rotation)
 
         # 必要台数の計算（処理能力と間口数の両方を考慮）
         # 1台あたりの間口数上限
@@ -336,6 +350,15 @@ def calculate_omnisorter_spec(params):
 
         # 最終的な必要台数（処理能力と間口数の大きい方）
         recommended_units = int(max(units_by_capacity, units_by_ports))
+
+        # 台数上限チェック: 上限を超える場合はこの機種をスキップ
+        if recommended_units > MAX_UNITS:
+            debug_info.append(f"{model_name}: SKIP(台数超過) {recommended_units}台 > MAX={MAX_UNITS}")
+            debug_info.append(f"  └ capacity:{int(units_by_capacity)}台, ports:{int(units_by_ports)}台")
+            continue
+
+        debug_info.append(f"{model_name}: PASS {recommended_units}台 <= MAX={MAX_UNITS}")
+        debug_info.append(f"  └ 目標回転:{effective_rotation}回/h, 必要間口:{int(min_ports_needed)}口")
 
         # 1台あたりの間口数
         if recommended_units > 0:
@@ -431,13 +454,21 @@ def calculate_omnisorter_spec(params):
                 'recommended_units': recommended_units,
                 'capacity_utilization': capacity_utilization,
                 'actual_rotation': actual_rotation,
+                'effective_rotation': effective_rotation,
                 'min_ports_needed': min_ports_needed,
                 'seconds_per_order': seconds_per_order,
                 'orders_per_hour_per_unit': orders_per_hour_per_unit
             }
 
     if not selected_model:
+        debug_info.append(f"=== 適合機種なし (MAX_UNITS={MAX_UNITS}) ===")
+        # デバッグ情報をセッションに保存
+        st.session_state['debug_info'] = debug_info
         return None
+
+    debug_info.append(f"=== 選択: {selected_model['name']} (score={best_score}) ===")
+    # デバッグ情報をセッションに保存
+    st.session_state['debug_info'] = debug_info
 
     # 選択された機種の計算結果を使用
     spec = selected_model['spec']
@@ -481,8 +512,8 @@ def calculate_omnisorter_spec(params):
             product_weight_g <= max_weight_alt):
 
             container_config_alt = get_container_model_config(
-                params['container_type'],
                 model_name,
+                params['container_type'],
                 CONTAINER_MODEL_MATRIX
             )
 
@@ -509,16 +540,178 @@ def calculate_omnisorter_spec(params):
         'installation_height': installation_height,
         'alternatives': alternatives,
         'daily_pieces': daily_pieces,
-        'target_rotation': TARGET_ROTATION,
+        'effective_rotation': best_calculation['effective_rotation'],
         'actual_rotation': best_calculation['actual_rotation'],
         'min_ports_needed': best_calculation['min_ports_needed']
     }
 
 
+def render_no_match_guidance(params):
+    """適合機種がない場合のガイダンス表示"""
+    st.markdown("""
+    <style>
+    .no-match-section {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin: 1rem 0;
+        border-left: 4px solid #FF6B35;
+    }
+    .no-match-title {
+        color: #333;
+        margin: 0 0 1rem 0;
+        font-size: 1.3rem;
+    }
+    .no-match-text {
+        color: #555;
+        margin: 0.5rem 0;
+        font-size: 0.95rem;
+        line-height: 1.6;
+    }
+    .solution-card {
+        background: white;
+        border-radius: 8px;
+        padding: 1rem;
+        margin: 0.5rem 0;
+        border: 1px solid #dee2e6;
+    }
+    .solution-title {
+        color: #333;
+        font-weight: bold;
+        margin: 0 0 0.3rem 0;
+        font-size: 0.95rem;
+    }
+    .solution-desc {
+        color: #666;
+        margin: 0;
+        font-size: 0.85rem;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    st.markdown("""
+    <div class="no-match-section">
+        <h3 class="no-match-title">🔍 OmniSorterの標準機種では適合が難しい条件です</h3>
+        <p class="no-match-text">
+            ご入力いただいた条件（商品サイズ・重量・処理能力）では、
+            OmniSorterの標準ラインナップでの対応が難しい可能性があります。
+        </p>
+        <p class="no-match-text">
+            しかし、<strong>諦めるのはまだ早いです！</strong><br>
+            当社では以下のような代替ソリューションをご提案できる場合があります。
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # 代替ソリューションの提案
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown("""
+        <div class="solution-card">
+            <p class="solution-title">🔧 カスタマイズ対応</p>
+            <p class="solution-desc">
+                標準機種をベースにした特注対応で、
+                大型商品や重量物への対応が可能な場合があります。
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown("""
+        <div class="solution-card">
+            <p class="solution-title">🤝 パートナー製品のご紹介</p>
+            <p class="solution-desc">
+                OmniSorter以外の仕分けソリューションも含めて、
+                最適な製品をご提案いたします。
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col2:
+        st.markdown("""
+        <div class="solution-card">
+            <p class="solution-title">📐 運用条件の見直し相談</p>
+            <p class="solution-desc">
+                作業時間の調整やピーク分散など、
+                運用面での最適化をご提案できる場合があります。
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown("""
+        <div class="solution-card">
+            <p class="solution-title">🔄 複合ソリューション</p>
+            <p class="solution-desc">
+                前工程・後工程も含めた総合的な物流改善を
+                トータルでご提案いたします。
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # 入力条件の表示
+    st.markdown("---")
+    st.markdown("**📋 ご入力いただいた条件**")
+
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.markdown(f"""
+        **運用条件**
+        - 日次出荷: {params['daily_orders']:,} 件/日
+        - 平均ピース数: {params['pieces_per_order']:.1f} pcs/件
+        - 作業時間: {params['working_hours']} 時間/日
+        """)
+    with col2:
+        st.markdown(f"""
+        **商品サイズ**
+        - 長さ: {params['product_length']} mm
+        - 幅: {params['product_width']} mm
+        - 高さ: {params['product_height']} mm
+        """)
+    with col3:
+        st.markdown(f"""
+        **その他**
+        - 重量: {params['product_weight']} kg
+        - 容器: {params['container_type']}
+        - ピーク倍率: {params['peak_ratio']:.1f}倍
+        """)
+
+    # 問い合わせ誘導ボタン
+    st.markdown("---")
+    st.markdown("""
+    <div style="
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        border-radius: 12px;
+        padding: 1.5rem;
+        text-align: center;
+        margin: 1rem 0;
+    ">
+        <h3 style="color: white; margin: 0 0 0.5rem 0; font-size: 1.2rem;">
+            📞 まずはお気軽にご相談ください
+        </h3>
+        <p style="color: rgba(255,255,255,0.9); margin: 0 0 1rem 0; font-size: 0.9rem;">
+            専門スタッフがお客様の課題をヒアリングし、最適なソリューションをご提案いたします。
+        </p>
+        <a href="#contact-form" style="
+            background: white;
+            color: #28a745;
+            padding: 0.7rem 2rem;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: bold;
+            display: inline-block;
+        ">
+            📩 お問い合わせフォームへ
+        </a>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.info("💡 **ヒント**: 下記の問い合わせフォームから送信いただくと、入力条件が自動で送信されます。")
+
+
 def render_results(result, params):
     """計算結果の表示"""
     if not result:
-        st.error("❌ 条件に適合する機種が見つかりませんでした。商品サイズまたは重量を見直してください。")
+        render_no_match_guidance(params)
         return
 
     # 表示設定を取得
@@ -830,7 +1023,7 @@ def render_results(result, params):
                 "値": [
                     f"{result['required_capacity_per_hour']:,.0f} pcs/時",
                     f"{required_orders:,.1f} 件/時",
-                    f"{result.get('target_rotation', 6)} 回転/時",
+                    f"{result.get('effective_rotation', 0)} 回転/時",
                     f"{result.get('actual_rotation', 0):.1f} 回転/時"
                 ]
             })
@@ -851,10 +1044,11 @@ def render_results(result, params):
             st.dataframe(ports_data, use_container_width=True, hide_index=True)
 
         # 計算式の説明
+        effective_rot = result.get('effective_rotation', 0)
         st.caption(f"""
         💡 **計算ロジック**:
         必要処理能力 = ({params['daily_orders']:,}件 × {params['pieces_per_order']:.1f}pcs) ÷ {params['working_hours']}h × {params['peak_ratio']:.1f} = {result['required_capacity_per_hour']:,.0f} pcs/時
-        | 理論最小間口数 = {required_orders:.1f}件/時 ÷ {result.get('target_rotation', 6)}回転 = {min_ports:.0f}間口
+        | 理論最小間口数 = {required_orders:.1f}件/時 ÷ 目標回転数({effective_rot}回転/時) = {min_ports:.0f}間口
         """)
 
     with tab3:
@@ -1093,13 +1287,20 @@ def main():
     if calculate_button:
         with st.spinner("計算中..."):
             result = calculate_omnisorter_spec(params)
-            if result:
-                st.session_state['last_result'] = result
-                st.session_state['last_params'] = params
+            # 計算結果を保存（Noneの場合も保存して、no-match guidanceを表示）
+            st.session_state['last_result'] = result
+            st.session_state['last_params'] = params
+            st.session_state['calculation_attempted'] = True
 
-    # 結果表示
-    if 'last_result' in st.session_state and 'last_params' in st.session_state:
-        render_results(st.session_state['last_result'], st.session_state['last_params'])
+    # 結果表示（計算が実行された場合のみ）
+    if st.session_state.get('calculation_attempted') and 'last_params' in st.session_state:
+        render_results(st.session_state.get('last_result'), st.session_state['last_params'])
+
+        # デバッグ情報表示（非表示）
+        # if 'debug_info' in st.session_state:
+        #     with st.expander("🔧 計算デバッグ情報", expanded=False):
+        #         for line in st.session_state['debug_info']:
+        #             st.text(line)
 
     # 問い合わせフォーム（アンカー付き）
     st.markdown("---")
@@ -1112,7 +1313,7 @@ def main():
 
     # フッター
     st.markdown("---")
-    st.caption("© 2026 ForeGroove Co., Ltd. All rights reserved.")
+    st.caption("© 2026 XXX Co., Ltd. All rights reserved.")
 
 
 if __name__ == "__main__":
